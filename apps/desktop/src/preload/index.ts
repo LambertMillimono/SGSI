@@ -1,2 +1,8 @@
-// Preload script — expanded in Phase 2 when React renderer is added
-// contextBridge APIs will be registered here
+import { contextBridge, ipcRenderer } from 'electron'
+
+contextBridge.exposeInMainWorld('electron', {
+  ipc: {
+    invoke: (channel: string, ...args: unknown[]) =>
+      ipcRenderer.invoke(channel, ...args),
+  },
+})

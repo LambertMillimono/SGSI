@@ -7,12 +7,9 @@ import { StudentListPage } from './pages/students/StudentListPage'
 import { StudentCreatePage } from './pages/students/StudentCreatePage'
 import { StudentProfilePage } from './pages/students/StudentProfilePage'
 import { GradeEntryPage } from './pages/grades/GradeEntryPage'
+import { BulletinPage } from './pages/grades/BulletinPage'
 import { PaymentListPage } from './pages/payments/PaymentListPage'
 import { ReceiptPage } from './pages/payments/ReceiptPage'
-
-function Stub({ name }: { name: string }) {
-  return <div style={{ padding: 24 }}><h2>{name}</h2><p>En cours de développement...</p></div>
-}
 
 export default function App() {
   return (
@@ -26,7 +23,7 @@ export default function App() {
           <Route path="students/new" element={<StudentCreatePage />} />
           <Route path="students/:id" element={<StudentProfilePage />} />
           <Route path="grades" element={<GradeEntryPage />} />
-          <Route path="grades/bulletins/:studentId" element={<Stub name="Bulletin PDF (P2-T10)" />} />
+          <Route path="grades/bulletins/:studentId" element={<BulletinPage />} />
           <Route path="payments" element={<PaymentListPage />} />
           <Route path="payments/:id/receipt" element={<ReceiptPage />} />
         </Route>

@@ -18,6 +18,16 @@ export function formatMatricule(
   return `${schoolCode.toUpperCase()}${l}${f}-${year}-${n}`
 }
 
+export function getAppreciationLabel(avg: number): string {
+  if (avg >= 18) return 'Excellent'
+  if (avg >= 16) return 'Très bien'
+  if (avg >= 14) return 'Bien'
+  if (avg >= 12) return 'Assez bien'
+  if (avg >= 10) return 'Passable'
+  if (avg >= 8) return 'Insuffisant'
+  return 'Très insuffisant'
+}
+
 export function numberToWordsFR(amount: number): string {
   // Simple implementation for GNF amounts
   const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
