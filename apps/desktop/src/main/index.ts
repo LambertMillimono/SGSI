@@ -19,8 +19,12 @@ async function createWindow(): Promise<void> {
       nodeIntegration: false,
     },
   })
-  // Phase 2 will load the React UI here
-  mainWindow.loadURL('about:blank')
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:5173/')
+    mainWindow.webContents.openDevTools()
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+  }
 }
 
 app.whenReady().then(async () => {
