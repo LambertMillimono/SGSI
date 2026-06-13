@@ -1,0 +1,442 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── CONFIGURATION ────────────────────────────────────────────────────────────
+
+model School {
+  id                   String   @id @default(cuid())
+  name                 String
+  logo                 String?
+  address              String?
+  phone                String?
+  email                String?
+  directorName         String?
+  stamp                String?
+  currency             String   @default("GNF")
+  language             String   @default("fr")
+  sigle                String   @default("ECO")
+  jwtSecret            String   @default("")
+  eliminatoryThreshold Float    @default(5.0)
+  passingAverage       Float    @default(10.0)
+  periodType           String   @default("TRIMESTER")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model AcademicYear {
+  id          String       @id @default(cuid())
+  label       String
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean      @default(false)
+  periodType  String       @default("TRIMESTER")
+  classes     Class[]
+  enrollments Enrollment[]
+}
+
+model License {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  schoolName  String
+  issuedAt    DateTime  @default(now())
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  maxStudents Int       @default(500)
+  plan        String    @default("STANDARD")
+}
+
+// ─── UTILISATEURS ──────────────────────────────────────────────────────────────
+
+model User {
+  id                 String     @id @default(cuid())
+  username           String     @unique
+  password           String
+  role               String
+  firstName          String
+  lastName           String
+  phone              String?
+  email              String?
+  isActive           Boolean    @default(true)
+  mustChangePassword Boolean    @default(false)
+  tempPasswordExpiry DateTime?
+  lastLogin          DateTime?
+  createdAt          DateTime   @default(now())
+  auditLogs          AuditLog[]
+  teacher            Teacher?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+// ─── STRUCTURE SCOLAIRE ────────────────────────────────────────────────────────
+
+model Level {
+  id       String    @id @default(cuid())
+  name     String
+  order    Int
+  classes  Class[]
+  feeTypes FeeType[]
+}
+
+model Class {
+  id             String         @id @default(cuid())
+  name           String
+  levelId        String
+  level          Level          @relation(fields: [levelId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
+  maxStudents    Int            @default(40)
+  teacherId      String?
+  teacher        Teacher?       @relation(fields: [teacherId], references: [id])
+  enrollments    Enrollment[]
+  schedules      Schedule[]
+  subjects       ClassSubject[]
+}
+
+model Subject {
+  id      String         @id @default(cuid())
+  name    String
+  code    String         @unique
+  classes ClassSubject[]
+  grades  Grade[]
+}
+
+model ClassSubject {
+  id           String   @id @default(cuid())
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id])
+  subjectId    String
+  subject      Subject  @relation(fields: [subjectId], references: [id])
+  coefficient  Float    @default(1)
+  hoursPerWeek Int      @default(2)
+  teacherId    String?
+  teacher      Teacher? @relation(fields: [teacherId], references: [id])
+}
+
+// ─── ÉLÈVES ────────────────────────────────────────────────────────────────────
+
+model Student {
+  id            String            @id @default(cuid())
+  matricule     String            @unique
+  firstName     String
+  lastName      String
+  gender        String
+  birthDate     DateTime
+  birthPlace    String?
+  nationality   String?
+  address       String?
+  phone         String?
+  email         String?
+  photo         String?
+  createdAt     DateTime          @default(now())
+  enrollments   Enrollment[]
+  parents       StudentParent[]
+  documents     StudentDocument[]
+  medicalRecord MedicalRecord?
+}
+
+model Enrollment {
+  id             String       @id @default(cuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id])
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  status         String       @default("ACTIVE")
+  enrolledAt     DateTime     @default(now())
+  grades         Grade[]
+  absences       Absence[]
+  bulletins      Bulletin[]
+  payments       Payment[]
+}
+
+model StudentDocument {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  type       String
+  filePath   String
+  uploadedAt DateTime @default(now())
+}
+
+// ─── PARENTS ──────────────────────────────────────────────────────────────────
+
+model Parent {
+  id         String          @id @default(cuid())
+  firstName  String
+  lastName   String
+  relation   String
+  phone      String
+  phone2     String?
+  address    String?
+  profession String?
+  email      String?
+  accessCode String?         @unique
+  students   StudentParent[]
+}
+
+model StudentParent {
+  studentId String
+  parentId  String
+  student   Student @relation(fields: [studentId], references: [id])
+  parent    Parent  @relation(fields: [parentId], references: [id])
+
+  @@id([studentId, parentId])
+}
+
+// ─── ENSEIGNANTS ──────────────────────────────────────────────────────────────
+
+model Teacher {
+  id           String         @id @default(cuid())
+  matricule    String         @unique
+  userId       String         @unique
+  user         User           @relation(fields: [userId], references: [id])
+  diploma      String?
+  hireDate     DateTime?
+  contractType String?
+  baseSalary   Float          @default(0)
+  hoursPerWeek Int            @default(0)
+  subjects     ClassSubject[]
+  homeClasses  Class[]
+  schedules    Schedule[]
+  salaries     Salary[]
+}
+
+// ─── NOTES ────────────────────────────────────────────────────────────────────
+
+model Grade {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+  subjectId    String
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  period       Int
+  evalType     String
+  value        Float
+  maxValue     Float      @default(20)
+  weight       Float      @default(1)
+  isLocked     Boolean    @default(false)
+  enteredAt    DateTime   @default(now())
+}
+
+model Bulletin {
+  id             String     @id @default(cuid())
+  enrollmentId   String
+  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id])
+  period         Int
+  generalAverage Float
+  rank           Int
+  totalStudents  Int
+  appreciation   String?
+  decision       String?
+  isValidated    Boolean    @default(false)
+  validatedAt    DateTime?
+  pdfPath        String?
+  createdAt      DateTime   @default(now())
+}
+
+// ─── ABSENCES ─────────────────────────────────────────────────────────────────
+
+model Absence {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+  date         DateTime
+  type         String
+  justified    Boolean    @default(false)
+  reason       String?
+  justifFile   String?
+  recordedAt   DateTime   @default(now())
+}
+
+// ─── EMPLOI DU TEMPS ──────────────────────────────────────────────────────────
+
+model Room {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  capacity  Int
+  schedules Schedule[]
+}
+
+model Schedule {
+  id          String   @id @default(cuid())
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id])
+  roomId      String?
+  room        Room?    @relation(fields: [roomId], references: [id])
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  subjectName String
+}
+
+// ─── FINANCES ─────────────────────────────────────────────────────────────────
+
+model FeeType {
+  id         String    @id @default(cuid())
+  name       String
+  amount     Float
+  levelId    String?
+  level      Level?    @relation(fields: [levelId], references: [id])
+  isRequired Boolean   @default(true)
+  payments   Payment[]
+}
+
+model Payment {
+  id           String               @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment           @relation(fields: [enrollmentId], references: [id])
+  feeTypeId    String
+  feeType      FeeType              @relation(fields: [feeTypeId], references: [id])
+  amount       Float
+  method       String
+  receiptNo    String               @unique
+  cashierId    String
+  note         String?
+  paidAt       DateTime             @default(now())
+  installments PaymentInstallment[]
+}
+
+model PaymentInstallment {
+  id        String    @id @default(cuid())
+  paymentId String
+  payment   Payment   @relation(fields: [paymentId], references: [id])
+  dueDate   DateTime
+  amount    Float
+  paidAt    DateTime?
+  isPaid    Boolean   @default(false)
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  label       String
+  amount      Float
+  category    String
+  receiptFile String?
+  recordedBy  String
+  doneAt      DateTime @default(now())
+}
+
+model CashRegister {
+  id           String    @id @default(cuid())
+  date         DateTime  @unique
+  openBalance  Float
+  closeBalance Float?
+  openedBy     String
+  closedBy     String?
+  isClosed     Boolean   @default(false)
+}
+
+// ─── PAIE ─────────────────────────────────────────────────────────────────────
+
+model Salary {
+  id         String    @id @default(cuid())
+  teacherId  String
+  teacher    Teacher   @relation(fields: [teacherId], references: [id])
+  month      Int
+  year       Int
+  baseSalary Float
+  bonuses    Float     @default(0)
+  advances   Float     @default(0)
+  deductions Float     @default(0)
+  netSalary  Float
+  pdfPath    String?
+  paidAt     DateTime?
+
+  @@unique([teacherId, month, year])
+}
+
+// ─── BIBLIOTHÈQUE ─────────────────────────────────────────────────────────────
+
+model Book {
+  id        String     @id @default(cuid())
+  title     String
+  author    String?
+  isbn      String?    @unique
+  category  String?
+  copies    Int        @default(1)
+  available Int        @default(1)
+  loans     BookLoan[]
+}
+
+model BookLoan {
+  id         String    @id @default(cuid())
+  bookId     String
+  book       Book      @relation(fields: [bookId], references: [id])
+  studentId  String
+  borrowedAt DateTime  @default(now())
+  dueDate    DateTime
+  returnedAt DateTime?
+  fine       Float     @default(0)
+}
+
+// ─── MÉDICAL ──────────────────────────────────────────────────────────────────
+
+model MedicalRecord {
+  id               String         @id @default(cuid())
+  studentId        String         @unique
+  student          Student        @relation(fields: [studentId], references: [id])
+  bloodType        String?
+  allergies        String?
+  conditions       String?
+  emergencyContact String?
+  consultations    Consultation[]
+}
+
+model Consultation {
+  id              String        @id @default(cuid())
+  medicalRecordId String
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id])
+  date            DateTime      @default(now())
+  reason          String
+  treatment       String?
+  notes           String?
+}
+
+// ─── TRANSPORT ────────────────────────────────────────────────────────────────
+
+model Bus {
+  id          String  @id @default(cuid())
+  plate       String  @unique
+  capacity    Int
+  driver      String
+  driverPhone String?
+  routes      Route[]
+}
+
+model Route {
+  id    String @id @default(cuid())
+  busId String
+  bus   Bus    @relation(fields: [busId], references: [id])
+  name  String
+  stops String
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  target    String
+  title     String
+  body      String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
