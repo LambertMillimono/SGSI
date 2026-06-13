@@ -1,4 +1,4 @@
-import { resolve } from 'path'
+import path, { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 export default defineConfig({
@@ -24,5 +24,11 @@ export default defineConfig({
       },
     },
   },
-  renderer: {},
+  renderer: {
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src/renderer'),
+      },
+    },
+  },
 })

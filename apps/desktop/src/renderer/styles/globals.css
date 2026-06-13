@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #1E40AF;
+  --sidebar-width: 200px;
+  --sidebar-collapsed-width: 64px;
+}
+
+html.dark {
+  background-color: #0F172A;
+  color: #F1F5F9;
+}
