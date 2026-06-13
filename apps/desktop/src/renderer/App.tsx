@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { RoleGuard } from './utils/roleGuard'
+import { AppLayout } from './components/layout/AppLayout'
 
 // Lazy imports will be added as pages are built
 // For now just stubs
@@ -12,7 +13,7 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route path="/login" element={<Stub name="Login (P2-T4)" />} />
-        <Route path="/" element={<RoleGuard><Stub name="AppLayout (P2-T3)" /></RoleGuard>}>
+        <Route path="/" element={<RoleGuard><AppLayout /></RoleGuard>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Stub name="Dashboard (P2-T5)" />} />
           <Route path="students" element={<Stub name="Students (P2-T6)" />} />
