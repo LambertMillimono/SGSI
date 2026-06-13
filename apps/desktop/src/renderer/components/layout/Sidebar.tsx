@@ -86,7 +86,7 @@ export function Sidebar() {
         <Menu
           theme="dark"
           mode="inline"
-          selectable={false}
+          selectedKeys={[location.pathname.startsWith('/settings') ? '/settings' : '']}
           items={[
             ...BOTTOM_ITEMS.map(item => ({
               key: item.key,

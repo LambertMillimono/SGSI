@@ -9,6 +9,7 @@ import { StudentProfilePage } from './pages/students/StudentProfilePage'
 import { GradeEntryPage } from './pages/grades/GradeEntryPage'
 import { BulletinPage } from './pages/grades/BulletinPage'
 import { PaymentListPage } from './pages/payments/PaymentListPage'
+import { SettingsPage } from './pages/settings/SettingsPage'
 import { ReceiptPage } from './pages/payments/ReceiptPage'
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="grades/bulletins/:studentId" element={<BulletinPage />} />
           <Route path="payments" element={<PaymentListPage />} />
           <Route path="payments/:id/receipt" element={<ReceiptPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

@@ -67,6 +67,21 @@ export const ipc = {
       invoke<any[]>('feetypes:list', levelId),
   },
   backup: {
-    create: (actorId: string) => invoke<any>('backup:create', actorId),
+    create: (format: 'db' | 'zip') => invoke<{ filePath: string }>('backup:create', format),
+    restore: (backupPath: string) => invoke<null>('backup:restore', backupPath),
+    list: () => invoke<any[]>('backup:list'),
+  },
+  settings: {
+    getSchool: () => invoke<any>('settings:getSchool'),
+    updateSchool: (data: any) => invoke<any>('settings:updateSchool', data),
+    listUsers: () => invoke<any[]>('settings:listUsers'),
+    createUser: (data: any) => invoke<any>('settings:createUser', data),
+    updateUser: (id: string, data: any) => invoke<any>('settings:updateUser', id, data),
+    resetUserPassword: (userId: string, requestedBy: string) => invoke<{ tempPassword: string }>('settings:resetUserPassword', userId, requestedBy),
+    listAcademicYears: () => invoke<any[]>('settings:listAcademicYears'),
+    createAcademicYear: (data: any) => invoke<any>('settings:createAcademicYear', data),
+    setCurrentYear: (id: string) => invoke<any>('settings:setCurrentYear', id),
+    createClass: (data: any) => invoke<any>('settings:createClass', data),
+    createLevel: (data: any) => invoke<any>('settings:createLevel', data),
   },
 }

@@ -4,6 +4,7 @@ import { registerStudentsIpc } from './students.ipc'
 import { registerGradesIpc } from './grades.ipc'
 import { registerPaymentsIpc } from './payments.ipc'
 import { registerBackupIpc } from './backup.ipc'
+import { registerSettingsIpc } from './settings.ipc'
 import path from 'path'
 
 export function registerIpcHandlers(db: PrismaClient): void {
@@ -17,4 +18,5 @@ export function registerIpcHandlers(db: PrismaClient): void {
   registerGradesIpc(db)
   registerPaymentsIpc(db)
   registerBackupIpc(db, dbPath)
+  registerSettingsIpc(db)
 }
