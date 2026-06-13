@@ -1,0 +1,19 @@
+{
+  "name": "sgsi",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "db:generate": "npm run generate -w packages/db",
+    "db:migrate": "npm run migrate -w packages/db",
+    "db:seed": "npm run seed -w packages/db",
+    "db:studio": "npm run studio -w packages/db",
+    "build": "npm run build --workspaces --if-present",
+    "desktop:dev": "npm run dev -w apps/desktop",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit"
+  }
+}
