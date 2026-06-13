@@ -82,7 +82,7 @@ export class GradeService {
       }
     })
 
-    const generalAverage = calcGeneralAverage(subjectAverages)
+    const generalAverage = calcGeneralAverage(subjectAverages as any)
     const isEliminated = subjectAverages.some(
       (s) => s.grades.length > 0 && s.average < eliminatoryThreshold
     )

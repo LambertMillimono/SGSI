@@ -9,11 +9,8 @@ let authService: AuthService
 beforeAll(async () => {
   // Use the dev database — it already has the full schema applied via migrations
   // Resolve path: from __tests__ go 6 levels up to repo root, then into packages/db/prisma
-  const { fileURLToPath } = await import('url')
-  const { resolve, dirname } = await import('path')
-  const __filename = fileURLToPath(import.meta.url)
-  const __dirname = dirname(__filename)
-  const dbPath = resolve(__dirname, '../../../../../../packages/db/prisma/sgsi.db')
+  const { resolve } = await import('path')
+  const dbPath = resolve(process.cwd(), '../../packages/db/prisma/sgsi.db')
 
   prisma = new PrismaClient({
     datasources: { db: { url: `file:${dbPath}` } },
