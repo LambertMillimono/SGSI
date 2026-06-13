@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@sgsi/shared": ["../../packages/shared/src/index.ts"],
+      "@sgsi/db": ["../../packages/db/src/client.ts"]
+    }
+  },
+  "include": ["src", "electron.vite.config.ts"]
+}
