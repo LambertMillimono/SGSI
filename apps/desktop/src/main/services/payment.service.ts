@@ -80,6 +80,24 @@ export class PaymentService {
     return result.filter((r) => r.balance > 0)
   }
 
+  async getById(id: string) {
+    const payment = await this.db.payment.findUnique({
+      where: { id },
+      include: {
+        feeType: true,
+        enrollment: {
+          include: {
+            student: true,
+            class: { include: { level: true } },
+            academicYear: true,
+          },
+        },
+      },
+    })
+    if (!payment) throw new ServiceError('PAYMENT_NOT_FOUND', `Paiement ${id} introuvable`)
+    return payment
+  }
+
   async listFeeTypes(levelId?: string) {
     return this.db.feeType.findMany({
       where: levelId ? { OR: [{ levelId }, { levelId: null }] } : undefined,

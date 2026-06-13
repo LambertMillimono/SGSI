@@ -30,4 +30,9 @@ export function registerPaymentsIpc(db: PrismaClient): void {
     try { return ok(await service.createFeeType(data, actorId)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
   })
+
+  ipcMain.handle('payments:receipt', async (_, id: string) => {
+    try { return ok(await service.getById(id)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
 }

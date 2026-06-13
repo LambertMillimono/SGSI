@@ -30,4 +30,7 @@ export function registerAuthIpc(db: PrismaClient, jwtSecret: string): void {
     try { return ok(await auth.checkPermission(userId, module, action)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
   })
+
+  // JWT is stateless — logout is handled client-side by discarding the token
+  ipcMain.handle('auth:logout', async () => ok(null))
 }
