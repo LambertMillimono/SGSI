@@ -4,7 +4,11 @@ export function calcSubjectAverage(grades: Grade[], weights: EvalWeights): numbe
   if (grades.length === 0) return 0
   const totalWeight = grades.reduce((sum, g) => sum + weights[g.evalType], 0)
   if (totalWeight === 0) return 0
-  const weightedSum = grades.reduce((sum, g) => sum + g.value * weights[g.evalType], 0)
+  // Normalise to /20 before weighting
+  const weightedSum = grades.reduce(
+    (sum, g) => sum + (g.value / g.maxValue) * 20 * weights[g.evalType],
+    0
+  )
   return Math.round((weightedSum / totalWeight) * 100) / 100
 }
 
@@ -16,9 +20,24 @@ export function calcGeneralAverage(subjectAverages: SubjectAverage[]): number {
   return Math.round((weightedSum / totalCoeff) * 100) / 100
 }
 
-export function calcRankings(averages: { enrollmentId: string; studentName: string; studentId: string; generalAverage: number; isEliminated: boolean }[]): Ranking[] {
-  const sorted = [...averages].sort((a, b) => b.generalAverage - a.generalAverage)
-  return sorted.map((item, index) => ({
+export function calcRankings(
+  averages: {
+    enrollmentId: string
+    studentName: string
+    studentId: string
+    generalAverage: number
+    isEliminated: boolean
+  }[]
+): Ranking[] {
+  // Non-eliminated students ranked first (by avg desc), then eliminated (by avg desc)
+  const passing = [...averages]
+    .filter((a) => !a.isEliminated)
+    .sort((a, b) => b.generalAverage - a.generalAverage)
+  const eliminated = [...averages]
+    .filter((a) => a.isEliminated)
+    .sort((a, b) => b.generalAverage - a.generalAverage)
+
+  return [...passing, ...eliminated].map((item, index) => ({
     ...item,
     rank: index + 1,
   }))
