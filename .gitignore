@@ -5,3 +5,22 @@ dist/
 .env
 .env.local
 *.zip
+
+# Prisma
+.prisma/
+generated/
+prisma/migrations/migration_lock.toml
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build cache
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Electron packaged output
+release/
