@@ -13,11 +13,27 @@ export class ClassService {
     }
   }
 
-  async listLevels() {
-    return this.db.level.findMany({ orderBy: { order: 'asc' } })
+  async listCycles() {
+    return this.db.cycle.findMany({
+      orderBy: { order: 'asc' },
+      include: { levels: { orderBy: { order: 'asc' } } },
+    })
   }
 
-  async createLevel(data: { name: string; order: number }, actorId: string) {
+  async createCycle(data: { name: string; order: number }, actorId: string) {
+    const cycle = await this.db.cycle.create({ data })
+    await this.audit(actorId, 'CREATE', 'cycle', cycle.id)
+    return cycle
+  }
+
+  async listLevels() {
+    return this.db.level.findMany({
+      orderBy: { order: 'asc' },
+      include: { cycle: true },
+    })
+  }
+
+  async createLevel(data: { name: string; order: number; cycleId: string }, actorId: string) {
     const level = await this.db.level.create({ data })
     await this.audit(actorId, 'CREATE', 'level', level.id)
     return level
@@ -27,7 +43,7 @@ export class ClassService {
     return this.db.class.findMany({
       where: academicYearId ? { academicYearId } : undefined,
       include: {
-        level: true,
+        level: { include: { cycle: true } },
         _count: { select: { enrollments: true } },
       },
       orderBy: { name: 'asc' },

@@ -1,0 +1,8 @@
+SGSI — Système de Gestion Scolaire Intégré
+Copyright © 2024 SchoolManager Pro
+Tous droits réservés.
+
+Ce logiciel est fourni sous licence commerciale.
+Toute reproduction ou redistribution est interdite sans autorisation écrite.
+
+Pour toute question, contactez l'administration de votre établissement.

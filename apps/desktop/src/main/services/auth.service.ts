@@ -17,7 +17,12 @@ export class AuthService {
     token: string
     user: { id: string; username: string; role: string; firstName: string; lastName: string; mustChangePassword: boolean }
   }> {
-    const user = await this.db.user.findUnique({ where: { username } })
+    // Case-insensitive lookup — SQLite returns booleans as 0/1 integers via $queryRaw
+    type UserRow = { id: string; username: string; password: string; role: string; firstName: string; lastName: string; isActive: number; mustChangePassword: number }
+    const rows = await this.db.$queryRaw<UserRow[]>`
+      SELECT id, username, password, role, firstName, lastName, isActive, mustChangePassword
+      FROM "User" WHERE LOWER(username) = LOWER(${username.trim()}) LIMIT 1`
+    const user = rows[0] ?? null
 
     if (!user || !user.isActive) {
       throw new ServiceError('INVALID_CREDENTIALS', 'Identifiants invalides')
@@ -58,7 +63,7 @@ export class AuthService {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
-        mustChangePassword: user.mustChangePassword,
+        mustChangePassword: !!user.mustChangePassword,
       },
     }
   }

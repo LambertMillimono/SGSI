@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: sgsi-license-server
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: ADMIN_SECRET
+        value: sgsi-admin-lambert-2024
+      - key: BREVO_API_KEY
+        value: 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
+      - key: ADMIN_EMAIL
+        value: lambertmillimono8@gmail.com
+      - key: NODE_ENV
+        value: production

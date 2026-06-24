@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
-  Form, Input, Select, DatePicker, Radio, Button, Card, Typography,
-  Row, Col, Divider, message, Upload,
+  Form, Input, Select, DatePicker, Radio, Button, Typography,
+  Row, Col, Avatar, Tooltip,
 } from 'antd'
-import { ArrowLeftOutlined, SaveOutlined, UserOutlined, UploadOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, SaveOutlined, UserOutlined, CameraOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { ipc } from '../../utils/ipcBridge'
 import { useAuth } from '../../hooks/useAuth'
+import { useAppMessage } from '../../hooks/useAppMessage'
 import { formatMatricule } from '../../utils/formatters'
 import { PageHeader } from '../../components/shared/PageHeader'
 
@@ -14,6 +15,7 @@ const { Option } = Select
 const { Title } = Typography
 
 export function StudentCreatePage() {
+  const message = useAppMessage()
   const navigate = useNavigate()
   const { userId } = useAuth()
   const [form] = Form.useForm()
@@ -22,14 +24,23 @@ export function StudentCreatePage() {
   const [years, setYears] = useState<any[]>([])
   const [matricule, setMatricule] = useState('')
   const [studentCount, setStudentCount] = useState(0)
+  const [photo, setPhoto] = useState<string | null>(null)
+
+  const handlePickPhoto = async () => {
+    try {
+      const dataUrl = await ipc.dialog.openImage()
+      if (dataUrl) setPhoto(dataUrl)
+    } catch { /* user cancelled */ }
+  }
 
   useEffect(() => {
-    ipc.classes.list().then((list) => {
-      setClasses(list)
-    }).catch(() => {})
-
-    // Get student count for matricule generation
+    ipc.classes.list().then(setClasses).catch(() => {})
     ipc.students.list().then((list) => setStudentCount(list.length)).catch(() => {})
+    ipc.settings.listAcademicYears().then((list) => {
+      setYears(list)
+      const current = list.find((y: any) => y.isCurrent)
+      if (current) form.setFieldValue('academicYearId', current.id)
+    }).catch(() => {})
   }, [])
 
   const updateMatricule = () => {
@@ -54,6 +65,7 @@ export function StudentCreatePage() {
         address: values.address,
         phone: values.phone,
         email: values.email,
+        photo: photo ?? undefined,
       }
 
       const student = await ipc.students.create(studentData, userId ?? 'system')
@@ -73,7 +85,7 @@ export function StudentCreatePage() {
   }
 
   const sectionStyle = {
-    background: '#fff',
+    background: 'var(--surface)',
     borderRadius: 12,
     padding: '24px',
     marginBottom: 16,
@@ -105,6 +117,39 @@ export function StudentCreatePage() {
             <UserOutlined style={{ marginRight: 8 }} />
             Informations personnelles
           </Title>
+
+          {/* Photo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+            <Tooltip title="Cliquer pour sélectionner une photo">
+              <div style={{ position: 'relative', cursor: 'pointer' }} onClick={handlePickPhoto}>
+                <Avatar
+                  size={80}
+                  icon={<UserOutlined />}
+                  src={photo ?? undefined}
+                  style={{ background: '#1E40AF' }}
+                />
+                <div style={{
+                  position: 'absolute', bottom: 0, right: 0,
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: '#1E40AF', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                }}>
+                  <CameraOutlined />
+                </div>
+              </div>
+            </Tooltip>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Photo de l'élève</div>
+              <div style={{ fontSize: 12, color: '#888' }}>Optionnelle — JPG, PNG</div>
+              {photo && (
+                <Button size="small" type="link" danger onClick={() => setPhoto(null)} style={{ padding: 0, height: 'auto' }}>
+                  Supprimer
+                </Button>
+              )}
+            </div>
+          </div>
+
           <Row gutter={16}>
             <Col xs={24} sm={12}>
               <Form.Item
@@ -179,9 +224,20 @@ export function StudentCreatePage() {
             Scolarité
           </Title>
           <Row gutter={16}>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
+              <Form.Item name="academicYearId" label="Année scolaire">
+                <Select placeholder="Sélectionner l'année" allowClear>
+                  {years.map((y: any) => (
+                    <Option key={y.id} value={y.id}>
+                      {y.label}{y.isCurrent ? ' ✓' : ''}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
               <Form.Item name="classId" label="Classe">
-                <Select placeholder="Sélectionner une classe" allowClear>
+                <Select placeholder="Sélectionner une classe" allowClear showSearch optionFilterProp="children">
                   {classes.map((c: any) => (
                     <Option key={c.id} value={c.id}>
                       {c.name} {c.level?.name ? `— ${c.level.name}` : ''}
@@ -190,7 +246,7 @@ export function StudentCreatePage() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
               <Form.Item label="Matricule (auto-généré)">
                 <Input value={matricule || '(remplir nom + prénom)'} disabled />
               </Form.Item>
@@ -235,23 +291,6 @@ export function StudentCreatePage() {
               </Form.Item>
             </Col>
           </Row>
-        </div>
-
-        {/* Section 4 — Documents */}
-        <div style={sectionStyle}>
-          <Title level={5} style={{ marginBottom: 20, color: '#1E40AF' }}>
-            Documents (optionnel)
-          </Title>
-          <Form.Item name="photo" label="Photo de l'élève">
-            <Upload
-              accept="image/*"
-              maxCount={1}
-              beforeUpload={() => false}
-              listType="picture"
-            >
-              <Button icon={<UploadOutlined />}>Choisir une photo</Button>
-            </Upload>
-          </Form.Item>
         </div>
 
         {/* Actions */}

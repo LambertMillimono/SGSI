@@ -1,0 +1,6 @@
+const { PrismaClient } = require('@prisma/client')
+const path = require('path')
+const db = new PrismaClient({ datasources: { db: { url: 'file:' + path.resolve(__dirname, 'prisma/sgsi.db') } } })
+db.user.findMany({ select: { id: true, username: true, role: true, firstName: true, lastName: true } })
+  .then(users => { console.log(JSON.stringify(users, null, 2)); return db.$disconnect() })
+  .catch(e => { console.error(e.message); return db.$disconnect() })

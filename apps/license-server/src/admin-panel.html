@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SGSI — Panel Admin Licences</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0F0F1A;
+      color: #E2E8F0;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; gap: 14px;
+      background: linear-gradient(135deg, #1E1B4B, #6366F1);
+      border-radius: 14px; padding: 20px 28px; margin-bottom: 28px;
+    }
+    .logo { width: 44px; height: 44px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; color: #fff; flex-shrink: 0; }
+    .header-title { font-size: 20px; font-weight: 800; color: #fff; }
+    .header-sub   { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+
+    /* Auth */
+    #auth-screen, #admin-screen { }
+    .card {
+      background: #1A1A2E; border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 14px; padding: 28px; margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 15px; font-weight: 700; color: #F0EFFF;
+      margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+    }
+
+    label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6B7280; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%; padding: 10px 14px;
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 8px; color: #F0EFFF; font-size: 13px; outline: none;
+      transition: border-color 150ms; font-family: inherit;
+    }
+    input:focus, select:focus { border-color: rgba(99,102,241,0.5); }
+    .field { margin-bottom: 14px; }
+
+    .btn {
+      padding: 11px 20px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 150ms;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #6366F1, #4F46E5); color: #fff; width: 100%; }
+    .btn-danger  { background: rgba(239,68,68,0.15); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); }
+    .btn-success { background: rgba(5,150,105,0.15); color: #6EE7B7; border: 1px solid rgba(5,150,105,0.3); }
+    .btn-sm { padding: 5px 12px; font-size: 11px; }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    /* Plan selector */
+    .plan-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .plan-opt {
+      padding: 12px 8px; border-radius: 8px; border: 1px solid rgba(99,102,241,0.2);
+      background: transparent; cursor: pointer; text-align: center; color: #A0A0C0;
+      transition: all 150ms;
+    }
+    .plan-opt.active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.5); color: #A5B4FC; }
+    .plan-opt .plan-code { font-size: 18px; font-weight: 900; }
+    .plan-opt .plan-name { font-size: 11px; color: #6B7280; margin: 2px 0; }
+    .plan-opt .plan-max  { font-size: 11px; font-weight: 600; }
+
+    /* Result box */
+    .key-result {
+      background: rgba(5,150,105,0.1); border: 1px solid rgba(5,150,105,0.3);
+      border-radius: 10px; padding: 18px; margin-top: 14px; display: none;
+    }
+    .key-result.show { display: block; }
+    .key-value { font-family: monospace; font-size: 20px; font-weight: 900; color: #6EE7B7; letter-spacing: 1px; word-break: break-all; }
+    .key-meta  { font-size: 12px; color: #A0A0C0; margin-top: 8px; }
+    .copy-btn  { margin-top: 10px; padding: 7px 16px; background: rgba(5,150,105,0.2); border: 1px solid rgba(5,150,105,0.4); border-radius: 6px; color: #6EE7B7; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 10px 12px; color: #6B7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge { padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+    .badge-active   { background: rgba(5,150,105,0.15); color: #6EE7B7; }
+    .badge-revoked  { background: rgba(239,68,68,0.15); color: #FCA5A5; }
+    .badge-expired  { background: rgba(245,158,11,0.15); color: #FCD34D; }
+    .badge-std { background: rgba(107,114,128,0.15); color: #9CA3AF; }
+    .badge-pro { background: rgba(99,102,241,0.15); color: #A5B4FC; }
+    .badge-ult { background: rgba(245,158,11,0.15); color: #FCD34D; }
+
+    .error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 10px 14px; color: #FCA5A5; font-size: 13px; margin-top: 10px; display: none; }
+    .error.show { display: block; }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab { padding: 8px 18px; border-radius: 8px; border: 1px solid rgba(99,102,241,0.15); background: transparent; color: #6B7280; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 150ms; }
+    .tab.active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4); color: #A5B4FC; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: #1A1A2E; border: 1px solid rgba(99,102,241,0.15); border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-val  { font-size: 26px; font-weight: 800; color: #A5B4FC; }
+    .stat-lbl  { font-size: 10px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+
+    /* Requests section */
+    .req-card { background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.2); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+    .req-school { font-size: 14px; font-weight: 700; color: #F0EFFF; }
+    .req-meta   { font-size: 12px; color: #A0A0C0; margin-top: 4px; }
+    .req-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">S</div>
+    <div>
+      <div class="header-title">SGSI — Panel Admin Licences</div>
+      <div class="header-sub">Gestion des licences SchoolManager Pro</div>
+    </div>
+  </div>
+
+  <!-- Auth screen -->
+  <div id="auth-screen">
+    <div class="card" style="max-width:380px;margin:0 auto">
+      <div class="card-title">🔐 Connexion administrateur</div>
+      <div class="field">
+        <label>Mot de passe admin</label>
+        <input type="password" id="auth-pwd" placeholder="Votre secret admin" onkeydown="if(event.key==='Enter') login()"/>
+      </div>
+      <div class="error" id="auth-error">Mot de passe incorrect</div>
+      <button class="btn btn-primary" onclick="login()" style="margin-top:14px">Se connecter</button>
+    </div>
+  </div>
+
+  <!-- Admin screen -->
+  <div id="admin-screen" style="display:none">
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-val" id="st-total">—</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-active" style="color:#6EE7B7">—</div><div class="stat-lbl">Actives</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-expired" style="color:#FCD34D">—</div><div class="stat-lbl">Expirées</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-revoked" style="color:#FCA5A5">—</div><div class="stat-lbl">Révoquées</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('generate')">➕ Générer une clé</button>
+      <button class="tab" onclick="showTab('list')">📋 Toutes les licences</button>
+      <button class="tab" onclick="showTab('requests')">📩 Demandes reçues</button>
+    </div>
+
+    <!-- TAB: Generate -->
+    <div id="tab-generate">
+      <div class="card">
+        <div class="card-title">➕ Générer une nouvelle clé de licence</div>
+
+        <div class="field">
+          <label>Plan</label>
+          <div class="plan-grid">
+            <div class="plan-opt active" onclick="selectPlan('STD',this)">
+              <div class="plan-code">STD</div>
+              <div class="plan-name">Standard</div>
+              <div class="plan-max">500 élèves</div>
+            </div>
+            <div class="plan-opt" onclick="selectPlan('PRO',this)">
+              <div class="plan-code" style="color:#818CF8">PRO</div>
+              <div class="plan-name">Professional</div>
+              <div class="plan-max">2 000 élèves</div>
+            </div>
+            <div class="plan-opt" onclick="selectPlan('ULT',this)">
+              <div class="plan-code" style="color:#FCD34D">ULT</div>
+              <div class="plan-name">Ultimate</div>
+              <div class="plan-max">Illimité</div>
+            </div>
+          </div>
+          <input type="hidden" id="gen-plan" value="STD"/>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label>Nom de l'école</label>
+            <input id="gen-school" placeholder="Ex: Groupe Scolaire Al Amine"/>
+          </div>
+          <div class="field">
+            <label>Email du client</label>
+            <input id="gen-email" type="email" placeholder="directeur@ecole.com"/>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label>Année d'expiration</label>
+            <select id="gen-year"></select>
+          </div>
+          <div class="field">
+            <label>Nombre de machines autorisées</label>
+            <select id="gen-machines">
+              <option value="1">1 machine</option>
+              <option value="2">2 machines</option>
+              <option value="3">3 machines</option>
+              <option value="5">5 machines</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Notes internes (optionnel)</label>
+          <input id="gen-notes" placeholder="Ex: Contrat signé le 15/06/2026"/>
+        </div>
+
+        <div class="error" id="gen-error"></div>
+
+        <button class="btn btn-primary" id="gen-btn" onclick="generateKey()">🔑 Générer la clé</button>
+
+        <!-- Result -->
+        <div class="key-result" id="key-result">
+          <div style="font-size:11px;color:#6EE7B7;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">✅ Clé générée avec succès</div>
+          <div class="key-value" id="key-value"></div>
+          <div class="key-meta" id="key-meta"></div>
+          <button class="copy-btn" onclick="copyKey()">📋 Copier la clé</button>
+          <button class="copy-btn" onclick="sendKeyEmail()" style="margin-left:8px;background:rgba(99,102,241,0.2);border-color:rgba(99,102,241,0.4);color:#A5B4FC">
+            📧 Envoyer par email au client
+          </button>
+          <div id="send-feedback" style="font-size:12px;color:#6EE7B7;margin-top:8px;display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: List -->
+    <div id="tab-list" style="display:none">
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <span>📋 Toutes les licences</span>
+          <button class="btn btn-success btn-sm" onclick="loadList()">🔄 Actualiser</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Clé</th><th>Plan</th><th>École</th><th>Machines</th><th>Expire</th><th>Statut</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="list-body"><tr><td colspan="7" style="text-align:center;color:#6B7280;padding:20px">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Requests -->
+    <div id="tab-requests" style="display:none">
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <span>📩 Demandes de licences reçues</span>
+          <button class="btn btn-success btn-sm" onclick="loadRequests()">🔄 Actualiser</button>
+        </div>
+        <div id="requests-list"><div style="color:#6B7280;text-align:center;padding:20px">Chargement…</div></div>
+      </div>
+    </div>
+
+  </div><!-- /admin-screen -->
+</div>
+
+<script>
+  let adminSecret = ''
+  let currentLicenseKey = ''
+  let currentClientEmail = ''
+
+  // Init year select
+  const yearSel = document.getElementById('gen-year')
+  const curYear = new Date().getFullYear()
+  for (let y = curYear; y <= curYear + 5; y++) {
+    const opt = document.createElement('option')
+    opt.value = y + 1
+    opt.textContent = `31/12/${y + 1}`
+    if (y === curYear) opt.selected = true
+    yearSel.appendChild(opt)
+  }
+
+  function selectPlan(plan, el) {
+    document.querySelectorAll('.plan-opt').forEach(p => p.classList.remove('active'))
+    el.classList.add('active')
+    document.getElementById('gen-plan').value = plan
+  }
+
+  function showTab(tab) {
+    document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none')
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.getElementById('tab-' + tab).style.display = 'block'
+    event.target.classList.add('active')
+    if (tab === 'list')     loadList()
+    if (tab === 'requests') loadRequests()
+  }
+
+  async function api(method, path, body) {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret },
+    }
+    if (body) opts.body = JSON.stringify(body)
+    const r = await fetch(path, opts)
+    return r.json()
+  }
+
+  async function login() {
+    const pwd = document.getElementById('auth-pwd').value
+    if (!pwd) return
+    adminSecret = pwd
+    try {
+      const r = await fetch('/api/license/list', { headers: { 'x-admin-secret': pwd } })
+      if (r.status === 401) {
+        document.getElementById('auth-error').classList.add('show'); return
+      }
+      const data = await r.json()
+      document.getElementById('auth-screen').style.display = 'none'
+      document.getElementById('admin-screen').style.display = 'block'
+      updateStats(data)
+    } catch {
+      document.getElementById('auth-error').classList.add('show')
+    }
+  }
+
+  function updateStats(data) {
+    document.getElementById('st-total').textContent   = data.total ?? '—'
+    document.getElementById('st-active').textContent  = data.active ?? '—'
+    document.getElementById('st-expired').textContent = data.expired ?? '—'
+    document.getElementById('st-revoked').textContent = data.revoked ?? '—'
+  }
+
+  async function generateKey() {
+    const school = document.getElementById('gen-school').value.trim()
+    const email  = document.getElementById('gen-email').value.trim()
+    const plan   = document.getElementById('gen-plan').value
+    const year   = document.getElementById('gen-year').value
+    const mach   = document.getElementById('gen-machines').value
+    const notes  = document.getElementById('gen-notes').value.trim()
+
+    const errEl = document.getElementById('gen-error')
+    errEl.classList.remove('show')
+
+    if (!school) { errEl.textContent = "Nom de l'école requis"; errEl.classList.add('show'); return }
+
+    const btn = document.getElementById('gen-btn')
+    btn.disabled = true
+    btn.innerHTML = '<span class="spinner"></span>Génération…'
+
+    try {
+      const r = await api('POST', '/api/license/generate', {
+        plan, expiryYear: Number(year), schoolName: school,
+        customerEmail: email, notes, maxMachines: Number(mach),
+      })
+      if (r.key) {
+        currentLicenseKey  = r.key
+        currentClientEmail = email
+        document.getElementById('key-value').textContent = r.key
+        document.getElementById('key-meta').innerHTML =
+          `Plan: <strong>${r.plan}</strong> · ${r.maxStudents?.toLocaleString()} élèves max · Expire le <strong>${new Date(r.expiresAt).toLocaleDateString('fr-FR')}</strong>`
+        document.getElementById('key-result').classList.add('show')
+        document.getElementById('send-feedback').style.display = 'none'
+      } else {
+        errEl.textContent = r.error ?? 'Erreur serveur'
+        errEl.classList.add('show')
+      }
+    } catch (e) {
+      errEl.textContent = 'Impossible de joindre le serveur'
+      errEl.classList.add('show')
+    }
+    btn.disabled = false
+    btn.innerHTML = '🔑 Générer la clé'
+  }
+
+  function copyKey() {
+    navigator.clipboard.writeText(currentLicenseKey).then(() => {
+      const btn = event.target
+      btn.textContent = '✅ Copié !'
+      setTimeout(() => btn.textContent = '📋 Copier la clé', 2000)
+    })
+  }
+
+  async function sendKeyEmail() {
+    if (!currentClientEmail) {
+      document.getElementById('send-feedback').textContent = 'Entrez l\'email du client d\'abord.'
+      document.getElementById('send-feedback').style.color = '#FCA5A5'
+      document.getElementById('send-feedback').style.display = 'block'
+      return
+    }
+    const fb = document.getElementById('send-feedback')
+    fb.textContent = 'Envoi en cours…'
+    fb.style.color = '#A0A0C0'
+    fb.style.display = 'block'
+
+    try {
+      const r = await api('POST', '/api/license/send-key', {
+        licenseKey: currentLicenseKey,
+        clientEmail: currentClientEmail,
+        schoolName: document.getElementById('gen-school').value,
+      })
+      if (r.success) {
+        fb.textContent = `✅ Clé envoyée à ${currentClientEmail}`
+        fb.style.color = '#6EE7B7'
+      } else {
+        fb.textContent = '❌ ' + (r.error ?? 'Erreur envoi email')
+        fb.style.color = '#FCA5A5'
+      }
+    } catch {
+      fb.textContent = '❌ Erreur de connexion serveur'
+      fb.style.color = '#FCA5A5'
+    }
+  }
+
+  async function loadList() {
+    const r = await fetch('/api/license/list', { headers: { 'x-admin-secret': adminSecret } })
+    const data = await r.json()
+    updateStats(data)
+    const tbody = document.getElementById('list-body')
+    if (!data.licenses?.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6B7280;padding:20px">Aucune licence</td></tr>'
+      return
+    }
+    tbody.innerHTML = data.licenses.map(l => {
+      const status = !l.isActive ? '<span class="badge badge-revoked">Révoquée</span>'
+                   : l.expired   ? '<span class="badge badge-expired">Expirée</span>'
+                   : '<span class="badge badge-active">Active</span>'
+      const plan   = `<span class="badge badge-${l.plan.toLowerCase()}">${l.plan}</span>`
+      const exp    = l.expiresAt ? new Date(l.expiresAt).toLocaleDateString('fr-FR') : 'Illimitée'
+      const machines = `${l.machineCount}/${l.maxMachines}`
+      return `<tr>
+        <td><code style="font-size:11px;color:#A5B4FC">${l.key}</code></td>
+        <td>${plan}</td>
+        <td style="font-weight:600">${l.schoolName || '—'}</td>
+        <td style="text-align:center">${machines}</td>
+        <td style="color:${l.expired?'#FCD34D':'#E2E8F0'}">${exp}</td>
+        <td>${status}</td>
+        <td>
+          ${l.isActive
+            ? `<button class="btn btn-danger btn-sm" onclick="revokeKey('${l.key}')">Révoquer</button>`
+            : `<button class="btn btn-success btn-sm" onclick="reactivateKey('${l.key}')">Réactiver</button>`}
+        </td>
+      </tr>`
+    }).join('')
+  }
+
+  async function revokeKey(key) {
+    if (!confirm(`Révoquer la licence ${key} ?\nL'école ne pourra plus se connecter.`)) return
+    const r = await api('POST', '/api/license/revoke', { key })
+    alert(r.message ?? r.error)
+    loadList()
+  }
+
+  async function reactivateKey(key) {
+    const r = await api('POST', '/api/license/reactivate', { key })
+    alert(r.message ?? r.error)
+    loadList()
+  }
+
+  async function loadRequests() {
+    try {
+      const r = await fetch('/api/license/requests', { headers: { 'x-admin-secret': adminSecret } })
+      const data = await r.json()
+      const el = document.getElementById('requests-list')
+      if (!data.requests?.length) {
+        el.innerHTML = '<div style="color:#6B7280;text-align:center;padding:20px">Aucune demande reçue</div>'
+        return
+      }
+      el.innerHTML = data.requests.slice().reverse().map(req => `
+        <div class="req-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div class="req-school">${req.schoolName} <span class="badge badge-${req.plan?.toLowerCase()}">${req.plan}</span></div>
+              <div class="req-meta">
+                👤 ${req.contactName || '—'} · 📧 ${req.contactEmail}
+                · 🕒 ${new Date(req.requestedAt).toLocaleString('fr-FR')}
+              </div>
+              ${req.message ? `<div class="req-meta" style="margin-top:4px;font-style:italic">"${req.message}"</div>` : ''}
+              ${req.hardwareId ? `<div class="req-meta" style="margin-top:4px;font-family:monospace;font-size:11px">ID Machine: ${req.hardwareId}</div>` : ''}
+            </div>
+            <span class="badge ${req.status==='processed'?'badge-active':'badge-expired'}">${req.status==='processed'?'Traité':'En attente'}</span>
+          </div>
+          <div class="req-actions">
+            <button class="btn btn-success btn-sm" onclick="quickGenerate('${req.plan}','${req.schoolName}','${req.contactEmail}','${req.id}')">
+              ⚡ Générer une clé pour cette école
+            </button>
+          </div>
+        </div>
+      `).join('')
+    } catch { document.getElementById('requests-list').innerHTML = '<div style="color:#FCA5A5">Erreur chargement</div>' }
+  }
+
+  function quickGenerate(plan, school, email, reqId) {
+    showTab('generate')
+    document.querySelectorAll('.tab')[0].click()
+    document.getElementById('gen-school').value = school
+    document.getElementById('gen-email').value  = email
+    document.getElementById('gen-plan').value   = plan
+    document.querySelectorAll('.plan-opt').forEach(p => p.classList.remove('active'))
+    const planMap = { STD: 0, PRO: 1, ULT: 2 }
+    document.querySelectorAll('.plan-opt')[planMap[plan] ?? 0]?.classList.add('active')
+    window.scrollTo(0, 0)
+  }
+</script>
+</body>
+</html>

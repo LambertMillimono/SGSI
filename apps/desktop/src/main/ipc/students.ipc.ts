@@ -54,6 +54,11 @@ export function registerStudentsIpc(db: PrismaClient): void {
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
   })
 
+  ipcMain.handle('cycles:list', async () => {
+    try { return ok(await classes.listCycles()) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
   ipcMain.handle('levels:list', async () => {
     try { return ok(await classes.listLevels()) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }

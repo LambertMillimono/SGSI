@@ -31,8 +31,56 @@ export function registerPaymentsIpc(db: PrismaClient): void {
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
   })
 
+  ipcMain.handle('feetypes:update', async (_, id: string, data, actorId: string) => {
+    try { return ok(await service.updateFeeType(id, data, actorId)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  ipcMain.handle('feetypes:delete', async (_, id: string, actorId: string) => {
+    try { await service.deleteFeeType(id, actorId); return ok(null) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
   ipcMain.handle('payments:receipt', async (_, id: string) => {
     try { return ok(await service.getById(id)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  // Rapport financier : total encaissé par mois/type
+  ipcMain.handle('payments:report', async (_, year: number) => {
+    try {
+      const start = new Date(year, 0, 1)
+      const end   = new Date(year, 11, 31, 23, 59, 59)
+      const payments = await db.payment.findMany({
+        where: { paidAt: { gte: start, lte: end } },
+        include: { feeType: true },
+        orderBy: { paidAt: 'asc' },
+      })
+      // Grouper par mois
+      const byMonth: Record<number, { total: number; count: number }> = {}
+      for (let m = 1; m <= 12; m++) byMonth[m] = { total: 0, count: 0 }
+      for (const p of payments) {
+        const m = new Date(p.paidAt).getMonth() + 1
+        byMonth[m].total += p.amount
+        byMonth[m].count += 1
+      }
+      const totalYear = payments.reduce((s, p) => s + p.amount, 0)
+      return ok({ byMonth, totalYear, count: payments.length })
+    } catch (e: any) { return fail('ERROR', e.message) }
+  })
+
+  // Rapport par type de frais
+  ipcMain.handle('payments:reportByFeeType', async (_, year: number) => {
+    try {
+      const start = new Date(year, 0, 1)
+      const end   = new Date(year, 11, 31, 23, 59, 59)
+      const feeTypes = await db.feeType.findMany({ include: { payments: { where: { paidAt: { gte: start, lte: end } } } } })
+      return ok(feeTypes.map(ft => ({
+        id: ft.id,
+        name: ft.name,
+        total: ft.payments.reduce((s, p) => s + p.amount, 0),
+        count: ft.payments.length,
+      })).filter(ft => ft.count > 0))
+    } catch (e: any) { return fail('ERROR', e.message) }
   })
 }

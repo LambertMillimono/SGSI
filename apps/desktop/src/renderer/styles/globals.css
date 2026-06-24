@@ -4,11 +4,195 @@
 
 :root {
   --color-primary: #1E40AF;
-  --sidebar-width: 200px;
+  --sidebar-width: 216px;
   --sidebar-collapsed-width: 64px;
+
+  /* Layout shells */
+  --layout-bg:      #F1F5F9;
+  --content-bg:     #F8FAFC;
+  --header-bg:      #ffffff;
+  --header-border:  #E5E7EB;
+
+  /* Text */
+  --text-primary:   #111827;
+  --text-secondary: #6B7280;
+  --text-muted:     #9CA3AF;
+
+  /* Surfaces */
+  --surface:        #ffffff;
+  --surface-raised: #F9FAFB;
+  --border:         #E5E7EB;
 }
 
 html.dark {
   background-color: #0F172A;
   color: #F1F5F9;
+
+  --layout-bg:      #0F172A;
+  --content-bg:     #1E293B;
+  --header-bg:      #1E293B;
+  --header-border:  #334155;
+
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+
+  --surface:        #1E293B;
+  --surface-raised: #273549;
+  --border:         #334155;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+/* Ant Design overrides for dark mode */
+html.dark .ant-table-wrapper .ant-table {
+  background: var(--surface);
+}
+
+html.dark .ant-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+html.dark .ant-layout {
+  background: var(--layout-bg);
+}
+
+html.dark .ant-layout-content {
+  background: var(--content-bg);
+}
+
+/* ─── Table headers — uppercase subtle labels ────────────────────────────── */
+.ant-table-thead > tr > th,
+.ant-table-thead > tr > td {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #6B7280 !important;
+}
+
+html.dark .ant-table-thead > tr > th,
+html.dark .ant-table-thead > tr > td {
+  color: #94A3B8 !important;
+}
+
+/* ─── Tags — pill shape ───────────────────────────────────────────────────── */
+.ant-tag {
+  border-radius: 20px !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  padding: 2px 10px !important;
+  line-height: 20px !important;
+}
+
+/* ─── Buttons — weight polish ──────────────────────────────────────────────── */
+.ant-btn {
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+}
+
+.ant-btn-primary {
+  box-shadow: 0 1px 4px rgba(30, 64, 175, 0.25) !important;
+}
+
+/* ─── Form item labels ────────────────────────────────────────────────────── */
+.ant-form-item-label > label {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+/* ─── Statistic title labels ──────────────────────────────────────────────── */
+.ant-statistic-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────────────────── */
+.ant-tabs-tab {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  font-weight: 700 !important;
+}
+
+/* ─── Descriptions item label ─────────────────────────────────────────────── */
+.ant-descriptions-item-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: #9CA3AF !important;
+}
+
+html.dark .ant-descriptions-item-label {
+  color: #64748B !important;
+}
+
+/* ─── Modal ───────────────────────────────────────────────────────────────── */
+.ant-modal-content {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* ─── Select / Dropdown popovers ──────────────────────────────────────────── */
+.ant-select-dropdown {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.ant-dropdown-menu {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ─── Message toasts ──────────────────────────────────────────────────────── */
+.ant-message-notice-content {
+  border-radius: 10px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ─── Scrollbar hover ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar-thumb:hover { background: #b0b7c3; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #64748B; }
+
+/* ─── Dark mode extra fixes ───────────────────────────────────────────────── */
+html.dark .ant-card-head {
+  border-color: var(--border);
+}
+
+html.dark .ant-modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+html.dark .ant-select-dropdown {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+html.dark .ant-dropdown-menu {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
 }

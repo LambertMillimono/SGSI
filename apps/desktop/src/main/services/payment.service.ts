@@ -118,6 +118,28 @@ export class PaymentService {
     return feeType
   }
 
+  async updateFeeType(
+    id: string,
+    data: { name?: string; amount?: number; isRequired?: boolean },
+    actorId: string
+  ) {
+    const updated = await this.db.feeType.update({ where: { id }, data })
+    await this.tryAudit(actorId, 'UPDATE', 'feeType', id)
+    return updated
+  }
+
+  async deleteFeeType(id: string, actorId: string) {
+    const count = await this.db.payment.count({ where: { feeTypeId: id } })
+    if (count > 0) {
+      throw new ServiceError(
+        'FEE_TYPE_IN_USE',
+        `Ce type de frais est utilisé dans ${count} paiement(s). Suppression impossible.`
+      )
+    }
+    await this.db.feeType.delete({ where: { id } })
+    await this.tryAudit(actorId, 'DELETE', 'feeType', id)
+  }
+
   private async tryAudit(
     userId: string,
     action: string,

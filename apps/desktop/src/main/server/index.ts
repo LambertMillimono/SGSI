@@ -47,7 +47,7 @@ export async function startExpressServer(db: PrismaClient): Promise<void> {
 
   return new Promise((resolve, reject) => {
     server!.listen(port, '0.0.0.0', () => {
-      console.log(`✅ Serveur mobile SGSI démarré sur le port ${port}`)
+      console.log(`[SGSI] Serveur mobile demarre sur le port ${port}`)
       resolve()
     })
     server!.on('error', reject)
@@ -58,6 +58,6 @@ export function stopExpressServer(): void {
   if (server) {
     server.close()
     server = null
-    console.log('🛑 Serveur mobile arrêté')
+    console.log('[SGSI] Serveur mobile arrete')
   }
 }

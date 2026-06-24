@@ -1,0 +1,52 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.calcSubjectAverage = calcSubjectAverage;
+exports.calcGeneralAverage = calcGeneralAverage;
+exports.calcRankings = calcRankings;
+exports.getAppreciation = getAppreciation;
+function calcSubjectAverage(grades, weights) {
+    if (grades.length === 0)
+        return 0;
+    const totalWeight = grades.reduce((sum, g) => sum + weights[g.evalType], 0);
+    if (totalWeight === 0)
+        return 0;
+    // Normalise to /20 before weighting
+    const weightedSum = grades.reduce((sum, g) => sum + (g.value / g.maxValue) * 20 * weights[g.evalType], 0);
+    return Math.round((weightedSum / totalWeight) * 100) / 100;
+}
+function calcGeneralAverage(subjectAverages) {
+    if (subjectAverages.length === 0)
+        return 0;
+    const totalCoeff = subjectAverages.reduce((sum, s) => sum + s.coefficient, 0);
+    if (totalCoeff === 0)
+        return 0;
+    const weightedSum = subjectAverages.reduce((sum, s) => sum + s.average * s.coefficient, 0);
+    return Math.round((weightedSum / totalCoeff) * 100) / 100;
+}
+function calcRankings(averages) {
+    // Non-eliminated students ranked first (by avg desc), then eliminated (by avg desc)
+    const passing = [...averages]
+        .filter((a) => !a.isEliminated)
+        .sort((a, b) => b.generalAverage - a.generalAverage);
+    const eliminated = [...averages]
+        .filter((a) => a.isEliminated)
+        .sort((a, b) => b.generalAverage - a.generalAverage);
+    return [...passing, ...eliminated].map((item, index) => ({
+        ...item,
+        rank: index + 1,
+    }));
+}
+function getAppreciation(average) {
+    if (average >= 18)
+        return 'Excellent';
+    if (average >= 16)
+        return 'Très Bien';
+    if (average >= 14)
+        return 'Bien';
+    if (average >= 12)
+        return 'Assez Bien';
+    if (average >= 10)
+        return 'Passable';
+    return 'Insuffisant';
+}
+//# sourceMappingURL=grade.utils.js.map

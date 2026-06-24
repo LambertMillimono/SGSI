@@ -52,7 +52,7 @@ async function main() {
 
   // Super Admin
   const hashedPassword = await bcrypt.hash('Admin@1234', 12)
-  const adminUser = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
     create: {
@@ -65,138 +65,109 @@ async function main() {
     },
   })
 
-  // Niveaux
-  const primaire = await prisma.level.upsert({
-    where: { id: 'level-primaire' },
+  // ─── Cycles ───────────────────────────────────────────────────────────────────
+  const cycleMaternelle = await prisma.cycle.upsert({
+    where: { id: 'cycle-maternelle' },
     update: {},
-    create: { id: 'level-primaire', name: 'Primaire', order: 1 },
+    create: { id: 'cycle-maternelle', name: 'Maternelle', order: 1 },
   })
-  const college = await prisma.level.upsert({
-    where: { id: 'level-college' },
+  const cyclePrimaire = await prisma.cycle.upsert({
+    where: { id: 'cycle-primaire' },
     update: {},
-    create: { id: 'level-college', name: 'Collège', order: 2 },
+    create: { id: 'cycle-primaire', name: 'Primaire', order: 2 },
   })
-  const lycee = await prisma.level.upsert({
-    where: { id: 'level-lycee' },
+  const cycleCollege = await prisma.cycle.upsert({
+    where: { id: 'cycle-college' },
     update: {},
-    create: { id: 'level-lycee', name: 'Lycée', order: 3 },
+    create: { id: 'cycle-college', name: 'Collège', order: 3 },
+  })
+  const cycleLycee = await prisma.cycle.upsert({
+    where: { id: 'cycle-lycee' },
+    update: {},
+    create: { id: 'cycle-lycee', name: 'Lycée', order: 4 },
   })
 
-  // Classes
+  // ─── Niveaux ──────────────────────────────────────────────────────────────────
+  // Maternelle
+  await prisma.level.upsert({ where: { id: 'niveau-ps' }, update: {}, create: { id: 'niveau-ps', name: 'Petite Section', order: 1, cycleId: cycleMaternelle.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-ms' }, update: {}, create: { id: 'niveau-ms', name: 'Moyenne Section', order: 2, cycleId: cycleMaternelle.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-gs' }, update: {}, create: { id: 'niveau-gs', name: 'Grande Section', order: 3, cycleId: cycleMaternelle.id } })
+  // Primaire
+  await prisma.level.upsert({ where: { id: 'niveau-ci' }, update: {}, create: { id: 'niveau-ci', name: 'CI', order: 1, cycleId: cyclePrimaire.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-cp' }, update: {}, create: { id: 'niveau-cp', name: 'CP', order: 2, cycleId: cyclePrimaire.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-ce1' }, update: {}, create: { id: 'niveau-ce1', name: 'CE1', order: 3, cycleId: cyclePrimaire.id } })
+  const niveauCe2 = await prisma.level.upsert({ where: { id: 'niveau-ce2' }, update: {}, create: { id: 'niveau-ce2', name: 'CE2', order: 4, cycleId: cyclePrimaire.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-cm1' }, update: {}, create: { id: 'niveau-cm1', name: 'CM1', order: 5, cycleId: cyclePrimaire.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-cm2' }, update: {}, create: { id: 'niveau-cm2', name: 'CM2', order: 6, cycleId: cyclePrimaire.id } })
+  // Collège
+  const niveau6e = await prisma.level.upsert({ where: { id: 'niveau-6e' }, update: {}, create: { id: 'niveau-6e', name: '6ème', order: 1, cycleId: cycleCollege.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-5e' }, update: {}, create: { id: 'niveau-5e', name: '5ème', order: 2, cycleId: cycleCollege.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-4e' }, update: {}, create: { id: 'niveau-4e', name: '4ème', order: 3, cycleId: cycleCollege.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-3e' }, update: {}, create: { id: 'niveau-3e', name: '3ème', order: 4, cycleId: cycleCollege.id } })
+  // Lycée
+  await prisma.level.upsert({ where: { id: 'niveau-2nde' }, update: {}, create: { id: 'niveau-2nde', name: 'Seconde', order: 1, cycleId: cycleLycee.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-1ere' }, update: {}, create: { id: 'niveau-1ere', name: 'Première', order: 2, cycleId: cycleLycee.id } })
+  await prisma.level.upsert({ where: { id: 'niveau-tale' }, update: {}, create: { id: 'niveau-tale', name: 'Terminale', order: 3, cycleId: cycleLycee.id } })
+
+  // ─── Classes ──────────────────────────────────────────────────────────────────
   const ce2 = await prisma.class.upsert({
     where: { id: 'class-ce2' },
     update: {},
-    create: {
-      id: 'class-ce2',
-      name: 'CE2',
-      levelId: primaire.id,
-      academicYearId: year.id,
-      maxStudents: 35,
-    },
+    create: { id: 'class-ce2', name: 'CE2 A', levelId: niveauCe2.id, academicYearId: year.id, maxStudents: 35 },
   })
   const classe6e = await prisma.class.upsert({
     where: { id: 'class-6e' },
     update: {},
-    create: {
-      id: 'class-6e',
-      name: '6ème A',
-      levelId: college.id,
-      academicYearId: year.id,
-      maxStudents: 40,
-    },
+    create: { id: 'class-6e', name: '6ème A', levelId: niveau6e.id, academicYearId: year.id, maxStudents: 40 },
   })
 
-  // Matières
-  const math = await prisma.subject.upsert({
-    where: { code: 'MATH' },
-    update: {},
-    create: { code: 'MATH', name: 'Mathématiques' },
-  })
-  const francais = await prisma.subject.upsert({
-    where: { code: 'FR' },
-    update: {},
-    create: { code: 'FR', name: 'Français' },
-  })
-  const svt = await prisma.subject.upsert({
-    where: { code: 'SVT' },
-    update: {},
-    create: { code: 'SVT', name: 'SVT' },
-  })
+  // ─── Matières ─────────────────────────────────────────────────────────────────
+  const math = await prisma.subject.upsert({ where: { code: 'MATH' }, update: {}, create: { code: 'MATH', name: 'Mathématiques' } })
+  const francais = await prisma.subject.upsert({ where: { code: 'FR' }, update: {}, create: { code: 'FR', name: 'Français' } })
+  const svt = await prisma.subject.upsert({ where: { code: 'SVT' }, update: {}, create: { code: 'SVT', name: 'SVT' } })
 
-  // Association matières ↔ classe 6ème A
-  await prisma.classSubject.upsert({
-    where: { id: 'cs-6e-math' },
-    update: {},
-    create: { id: 'cs-6e-math', classId: classe6e.id, subjectId: math.id, coefficient: 3 },
-  })
-  await prisma.classSubject.upsert({
-    where: { id: 'cs-6e-fr' },
-    update: {},
-    create: { id: 'cs-6e-fr', classId: classe6e.id, subjectId: francais.id, coefficient: 3 },
-  })
-  await prisma.classSubject.upsert({
-    where: { id: 'cs-6e-svt' },
-    update: {},
-    create: { id: 'cs-6e-svt', classId: classe6e.id, subjectId: svt.id, coefficient: 2 },
-  })
+  await prisma.classSubject.upsert({ where: { id: 'cs-6e-math' }, update: {}, create: { id: 'cs-6e-math', classId: classe6e.id, subjectId: math.id, coefficient: 3 } })
+  await prisma.classSubject.upsert({ where: { id: 'cs-6e-fr' }, update: {}, create: { id: 'cs-6e-fr', classId: classe6e.id, subjectId: francais.id, coefficient: 3 } })
+  await prisma.classSubject.upsert({ where: { id: 'cs-6e-svt' }, update: {}, create: { id: 'cs-6e-svt', classId: classe6e.id, subjectId: svt.id, coefficient: 2 } })
 
-  // 3 élèves démo
+  // ─── Élèves démo ──────────────────────────────────────────────────────────────
   const students = [
-    { id: 'stu-001', firstName: 'Amadou', lastName: 'Bah', gender: 'MALE', matricule: 'DEMOAB-2025-0001' },
-    { id: 'stu-002', firstName: 'Fatoumata', lastName: 'Diallo', gender: 'FEMALE', matricule: 'DEMOFD-2025-0002' },
-    { id: 'stu-003', firstName: 'Ibrahima', lastName: 'Camara', gender: 'MALE', matricule: 'DEMOIC-2025-0003' },
+    { id: 'stu-001', firstName: 'Amadou',     lastName: 'Bah',    gender: 'MALE',   matricule: 'DEMOAB-2025-0001' },
+    { id: 'stu-002', firstName: 'Fatoumata',  lastName: 'Diallo', gender: 'FEMALE', matricule: 'DEMOFD-2025-0002' },
+    { id: 'stu-003', firstName: 'Ibrahima',   lastName: 'Camara', gender: 'MALE',   matricule: 'DEMOIC-2025-0003' },
   ]
 
   for (const s of students) {
     await prisma.student.upsert({
       where: { matricule: s.matricule },
       update: {},
-      create: {
-        ...s,
-        birthDate: new Date('2010-01-01'),
-        nationality: 'Guinéenne',
-      },
+      create: { ...s, birthDate: new Date('2010-01-01'), nationality: 'Guinéenne' },
     })
     await prisma.enrollment.upsert({
       where: { id: `enroll-${s.id}` },
       update: {},
-      create: {
-        id: `enroll-${s.id}`,
-        studentId: s.id,
-        classId: classe6e.id,
-        academicYearId: year.id,
-      },
+      create: { id: `enroll-${s.id}`, studentId: s.id, classId: classe6e.id, academicYearId: year.id },
     })
   }
 
-  // Frais scolaires (par niveau collège)
+  // ─── Frais scolaires ──────────────────────────────────────────────────────────
   await prisma.feeType.upsert({
     where: { id: 'fee-inscription' },
     update: {},
-    create: {
-      id: 'fee-inscription',
-      name: "Frais d'inscription",
-      amount: 500000,
-      levelId: college.id,
-      isRequired: true,
-    },
+    create: { id: 'fee-inscription', name: "Frais d'inscription", amount: 500000, levelId: niveau6e.id, isRequired: true },
   })
   await prisma.feeType.upsert({
     where: { id: 'fee-scolarite' },
     update: {},
-    create: {
-      id: 'fee-scolarite',
-      name: 'Scolarité trimestrielle',
-      amount: 1500000,
-      levelId: college.id,
-      isRequired: true,
-    },
+    create: { id: 'fee-scolarite', name: 'Scolarité trimestrielle', amount: 1500000, levelId: niveau6e.id, isRequired: true },
   })
 
   console.log('✅ Seed terminé avec succès')
   console.log('👤 Connexion admin: username=admin / password=Admin@1234')
   console.log(`📚 École: ${school.name}`)
   console.log(`📅 Année: ${year.label}`)
+  console.log(`🔄 Cycles: Maternelle, Primaire, Collège, Lycée`)
+  console.log(`📊 Niveaux: 16 niveaux standards créés`)
   console.log(`👥 Élèves créés: ${students.length}`)
 }
 

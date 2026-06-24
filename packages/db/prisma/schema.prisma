@@ -69,6 +69,8 @@ model User {
   createdAt          DateTime   @default(now())
   auditLogs          AuditLog[]
   teacher            Teacher?
+  sentMessages       Message[]  @relation("SentMessages")
+  receivedMessages   Message[]  @relation("ReceivedMessages")
 }
 
 model AuditLog {
@@ -84,12 +86,22 @@ model AuditLog {
 
 // ─── STRUCTURE SCOLAIRE ────────────────────────────────────────────────────────
 
+model Cycle {
+  id     String  @id @default(cuid())
+  name   String
+  order  Int
+  levels Level[]
+}
+
 model Level {
-  id       String    @id @default(cuid())
-  name     String
-  order    Int
-  classes  Class[]
-  feeTypes FeeType[]
+  id            String         @id @default(cuid())
+  name          String
+  order         Int
+  cycleId       String
+  cycle         Cycle          @relation(fields: [cycleId], references: [id])
+  classes       Class[]
+  feeTypes      FeeType[]
+  levelSubjects LevelSubject[]
 }
 
 model Class {
@@ -108,11 +120,12 @@ model Class {
 }
 
 model Subject {
-  id      String         @id @default(cuid())
-  name    String
-  code    String         @unique
-  classes ClassSubject[]
-  grades  Grade[]
+  id            String         @id @default(cuid())
+  name          String
+  code          String         @unique
+  classes       ClassSubject[]
+  grades        Grade[]
+  levelSubjects LevelSubject[]
 }
 
 model ClassSubject {
@@ -125,6 +138,18 @@ model ClassSubject {
   hoursPerWeek Int      @default(2)
   teacherId    String?
   teacher      Teacher? @relation(fields: [teacherId], references: [id])
+}
+
+model LevelSubject {
+  id           String  @id @default(cuid())
+  levelId      String
+  level        Level   @relation(fields: [levelId], references: [id])
+  subjectId    String
+  subject      Subject @relation(fields: [subjectId], references: [id])
+  coefficient  Float   @default(1)
+  hoursPerWeek Int     @default(2)
+
+  @@unique([levelId, subjectId])
 }
 
 // ─── ÉLÈVES ────────────────────────────────────────────────────────────────────
@@ -439,4 +464,23 @@ model Notification {
   type      String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// ─── MESSAGERIE ───────────────────────────────────────────────────────────────
+
+model Message {
+  id          String    @id @default(cuid())
+  fromUserId  String
+  fromUser    User      @relation("SentMessages", fields: [fromUserId], references: [id])
+  toUserId    String
+  toUser      User      @relation("ReceivedMessages", fields: [toUserId], references: [id])
+  subject     String
+  body        String
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  isDeleted   Boolean   @default(false)
+  parentId    String?
+  parent      Message?  @relation("MessageThread", fields: [parentId], references: [id])
+  replies     Message[] @relation("MessageThread")
+  createdAt   DateTime  @default(now())
 }
