@@ -4,6 +4,7 @@ import { getDb, closeDb } from './database/client'
 import { registerIpcHandlers } from './ipc'
 import { startExpressServer, stopExpressServer } from './server'
 import { BackupService } from './services/backup.service'
+import { checkOverdueAtStartup } from './ipc/relances.ipc'
 
 // ── Suppress Chromium noise before app is ready ────────────────────────────
 // Fixes "Critical error found -8 / No file for / Failed to save user data"
@@ -77,6 +78,12 @@ app.whenReady().then(async () => {
   registerIpcHandlers(db)
   await startExpressServer(db)
   await createWindow()
+
+  if (mainWindow) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      checkOverdueAtStartup(db, mainWindow!)
+    })
+  }
 
   const dbPath = process.env.NODE_ENV === 'development'
     ? path.resolve(process.cwd(), '../../packages/db/prisma/sgsi.db')
