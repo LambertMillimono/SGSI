@@ -6,8 +6,12 @@ import {
 import {
   DollarOutlined, TeamOutlined, PrinterOutlined,
   ExclamationCircleOutlined, CalendarOutlined, DownloadOutlined,
-  BarChartOutlined, FileExcelOutlined,
+  BarChartOutlined, FileExcelOutlined, RiseOutlined,
 } from '@ant-design/icons'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
+  ResponsiveContainer, Legend, ReferenceLine,
+} from 'recharts'
 import dayjs from 'dayjs'
 import { ipc } from '../../utils/ipcBridge'
 import { useAppMessage } from '../../hooks/useAppMessage'
@@ -654,13 +658,284 @@ function AbsenceReport() {
   )
 }
 
+// ── Rapport Prévisions de recettes ────────────────────────────────────────────
+function ForecastReport() {
+  const message = useAppMessage()
+  const [year, setYear]       = useState(dayjs().year())
+  const [loading, setLoading] = useState(false)
+  const [data, setData]       = useState<any>(null)
+
+  const yearOptions = Array.from({ length: 5 }, (_, i) => dayjs().year() - i)
+
+  const load = async (y: number) => {
+    setLoading(true)
+    try { setData(await ipc.payments.forecast(y)) }
+    catch (e: any) { message.error(e.message) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { load(year) }, [year])
+
+  const rateColor = !data ? '#6366F1'
+    : data.rate >= 80 ? '#059669'
+    : data.rate >= 50 ? '#F59E0B'
+    : '#DC2626'
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20 }}>
+        <Typography.Text strong>Année :</Typography.Text>
+        <Select value={year} onChange={y => { setYear(y); load(y) }} style={{ width: 110 }}>
+          {yearOptions.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
+        </Select>
+      </div>
+
+      {data && (
+        <>
+          {/* KPI Hero */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col span={6}>
+              <div className="glass" style={{ borderRadius: 16, padding: '20px 22px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 12 }}>Taux de recouvrement</div>
+                <Progress
+                  type="circle" percent={data.rate} size={90}
+                  strokeColor={rateColor}
+                  format={p => <span style={{ fontSize: 18, fontWeight: 800, color: rateColor }}>{p}%</span>}
+                />
+              </div>
+            </Col>
+            <Col span={6}>
+              <div className="glass" style={{ borderRadius: 16, padding: '20px 22px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 8 }}>Recettes prévues</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#6366F1', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{formatGNF(data.totalExpected)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{data.activeEnrollments} élèves actifs</div>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div className="glass" style={{ borderRadius: 16, padding: '20px 22px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 8 }}>Encaissé</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#059669', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{formatGNF(data.totalPaid)}</div>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div className="glass" style={{ borderRadius: 16, padding: '20px 22px' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 8 }}>Reste à encaisser</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: data.remaining > 0 ? '#DC2626' : '#059669', letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatGNF(data.remaining)}
+                </div>
+              </div>
+            </Col>
+          </Row>
+
+          {/* Barre de progression globale */}
+          <div className="glass" style={{ borderRadius: 16, padding: '18px 22px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Typography.Text style={{ fontWeight: 600, fontSize: 13 }}>Avancement global du recouvrement {year}</Typography.Text>
+              <Typography.Text style={{ fontWeight: 800, color: rateColor }}>{data.rate}%</Typography.Text>
+            </div>
+            <div style={{ height: 10, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 99,
+                width: `${data.rate}%`,
+                background: `linear-gradient(90deg, ${rateColor}, ${rateColor}CC)`,
+                transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)',
+              }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+              <span>0 GNF</span>
+              <span>{formatGNF(data.totalPaid)} encaissé sur {formatGNF(data.totalExpected)} prévu</span>
+            </div>
+          </div>
+
+          {/* Breakdown par type de frais */}
+          <div className="glass" style={{ borderRadius: 16, overflow: 'hidden' }}>
+            <Table
+              dataSource={data.byFeeType}
+              rowKey="name"
+              size="small"
+              loading={loading}
+              pagination={false}
+              columns={[
+                { title: 'Type de frais', dataIndex: 'name', key: 'name',
+                  render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+                { title: 'Attendu', dataIndex: 'expected', key: 'exp', width: 160,
+                  render: (v: number) => <Typography.Text style={{ color: '#6366F1', fontVariantNumeric: 'tabular-nums' }}>{formatGNF(v)}</Typography.Text> },
+                { title: 'Encaissé', dataIndex: 'paid', key: 'paid', width: 160,
+                  render: (v: number) => <Typography.Text style={{ color: '#059669', fontVariantNumeric: 'tabular-nums' }}>{formatGNF(v)}</Typography.Text> },
+                { title: 'Écart', key: 'ecart', width: 160,
+                  render: (_: any, r: any) => {
+                    const diff = r.expected - r.paid
+                    return <Typography.Text strong style={{ color: diff > 0 ? '#DC2626' : '#059669', fontVariantNumeric: 'tabular-nums' }}>
+                      {diff > 0 ? '-' : '+'}{formatGNF(Math.abs(diff))}
+                    </Typography.Text>
+                  }
+                },
+                { title: 'Taux', key: 'rate', width: 100,
+                  render: (_: any, r: any) => {
+                    const rate = r.expected > 0 ? Math.round((r.paid / r.expected) * 100) : 0
+                    return <Tag style={{
+                      background: rate >= 80 ? 'rgba(5,150,105,0.1)' : rate >= 50 ? 'rgba(245,158,11,0.1)' : 'rgba(220,38,38,0.1)',
+                      color: rate >= 80 ? '#059669' : rate >= 50 ? '#F59E0B' : '#DC2626',
+                      border: 'none', borderRadius: 20, fontWeight: 700,
+                    }}>{rate}%</Tag>
+                  }
+                },
+              ]}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Rapport Recettes vs Dépenses ──────────────────────────────────────────────
+function ComparisonReport() {
+  const message = useAppMessage()
+  const [year, setYear]       = useState(dayjs().year())
+  const [loading, setLoading] = useState(false)
+  const [data, setData]       = useState<any[]>([])
+  const [totals, setTotals]   = useState({ recettes: 0, depenses: 0, solde: 0 })
+
+  const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+  const yearOptions  = Array.from({ length: 5 }, (_, i) => dayjs().year() - i)
+
+  const load = async (y: number) => {
+    setLoading(true)
+    try {
+      const [payReport, expSummary] = await Promise.all([
+        ipc.payments.report(y),
+        ipc.expenses.summary(y),
+      ])
+
+      const chartData = MONTHS_SHORT.map((mois, i) => {
+        const m    = i + 1
+        const rec  = payReport?.byMonth?.[m]?.total ?? 0
+        const dep  = expSummary?.byMonth?.[m] ?? 0
+        return { mois, recettes: rec, depenses: dep, solde: rec - dep }
+      })
+
+      setData(chartData)
+      const totRec = chartData.reduce((s, r) => s + r.recettes, 0)
+      const totDep = chartData.reduce((s, r) => s + r.depenses, 0)
+      setTotals({ recettes: totRec, depenses: totDep, solde: totRec - totDep })
+    } catch (e: any) {
+      message.error(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load(year) }, [year])
+
+  const formatK = (v: number) =>
+    v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}k` : String(v)
+
+  const soldeColor = totals.solde >= 0 ? '#059669' : '#DC2626'
+
+  return (
+    <div>
+      {/* Sélecteur année */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20 }}>
+        <Typography.Text strong>Année :</Typography.Text>
+        <Select value={year} onChange={y => { setYear(y); load(y) }} style={{ width: 110 }}>
+          {yearOptions.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
+        </Select>
+      </div>
+
+      {/* KPI Cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {[
+          { label: 'Total recettes', value: totals.recettes, color: '#6366F1', icon: <DollarOutlined /> },
+          { label: 'Total dépenses', value: totals.depenses, color: '#DC2626', icon: <ExclamationCircleOutlined /> },
+          { label: 'Solde net', value: totals.solde, color: soldeColor, icon: <RiseOutlined /> },
+        ].map(({ label, value, color, icon }) => (
+          <Col key={label} span={8}>
+            <div className="glass" style={{ borderRadius: 16, padding: '18px 22px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: `radial-gradient(ellipse at top right, ${color}10, transparent 60%)` }} />
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+                {formatGNF(value)}
+              </div>
+            </div>
+          </Col>
+        ))}
+      </Row>
+
+      {/* Chart */}
+      <div className="glass" style={{ borderRadius: 16, padding: '20px 24px' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: 'var(--text-primary)' }}>
+          Recettes vs Dépenses — {year}
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={data} margin={{ top: 4, right: 8, left: 8, bottom: 0 }} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(99,102,241,0.1)" />
+            <XAxis dataKey="mois" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={formatK} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={52} />
+            <RechartTooltip
+              formatter={(v: any, name: string) => [formatGNF(Number(v)), name === 'recettes' ? 'Recettes' : 'Dépenses']}
+              contentStyle={{ borderRadius: 10, fontSize: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            />
+            <Legend
+              iconType="square"
+              formatter={v => v === 'recettes' ? 'Recettes' : 'Dépenses'}
+              wrapperStyle={{ fontSize: 12 }}
+            />
+            <Bar dataKey="recettes" fill="#6366F1" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            <Bar dataKey="depenses" fill="#F43F5E" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Monthly detail table */}
+      <div className="glass" style={{ borderRadius: 16, marginTop: 16, overflow: 'hidden' }}>
+        <Table
+          dataSource={data}
+          rowKey="mois"
+          size="small"
+          loading={loading}
+          pagination={false}
+          columns={[
+            { title: 'Mois', dataIndex: 'mois', key: 'mois', width: 80 },
+            {
+              title: 'Recettes', dataIndex: 'recettes', key: 'rec',
+              render: (v: number) => <Typography.Text strong style={{ color: '#6366F1' }}>{formatGNF(v)}</Typography.Text>,
+            },
+            {
+              title: 'Dépenses', dataIndex: 'depenses', key: 'dep',
+              render: (v: number) => <Typography.Text strong style={{ color: '#F43F5E' }}>{formatGNF(v)}</Typography.Text>,
+            },
+            {
+              title: 'Solde', dataIndex: 'solde', key: 'sol',
+              render: (v: number) => (
+                <Typography.Text strong style={{ color: v >= 0 ? '#059669' : '#DC2626' }}>
+                  {v >= 0 ? '+' : ''}{formatGNF(v)}
+                </Typography.Text>
+              ),
+            },
+          ]}
+          summary={() => (
+            <Table.Summary.Row>
+              <Table.Summary.Cell index={0}><Typography.Text strong>Total</Typography.Text></Table.Summary.Cell>
+              <Table.Summary.Cell index={1}><Typography.Text strong style={{ color: '#6366F1' }}>{formatGNF(totals.recettes)}</Typography.Text></Table.Summary.Cell>
+              <Table.Summary.Cell index={2}><Typography.Text strong style={{ color: '#F43F5E' }}>{formatGNF(totals.depenses)}</Typography.Text></Table.Summary.Cell>
+              <Table.Summary.Cell index={3}><Typography.Text strong style={{ color: soldeColor }}>{totals.solde >= 0 ? '+' : ''}{formatGNF(totals.solde)}</Typography.Text></Table.Summary.Cell>
+            </Table.Summary.Row>
+          )}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── Page principale ────────────────────────────────────────────────────────────
 export function ReportsPage() {
   const items = [
-    { key: 'financial', label: <span><DollarOutlined /> Financier</span>, children: <FinancialReport /> },
-    { key: 'pedagogy', label: <span><TeamOutlined /> Pédagogique</span>, children: <PedagoReport /> },
-    { key: 'unpaid', label: <span><ExclamationCircleOutlined /> Impayés</span>, children: <UnpaidReport /> },
-    { key: 'absences', label: <span><CalendarOutlined /> Absences</span>, children: <AbsenceReport /> },
+    { key: 'financial',   label: <span><DollarOutlined />               Financier</span>,            children: <FinancialReport /> },
+    { key: 'forecast',    label: <span><RiseOutlined />                  Prévisions</span>,           children: <ForecastReport /> },
+    { key: 'comparison',  label: <span><BarChartOutlined />              Recettes vs Dépenses</span>, children: <ComparisonReport /> },
+    { key: 'pedagogy',    label: <span><TeamOutlined />                  Pédagogique</span>,          children: <PedagoReport /> },
+    { key: 'unpaid',      label: <span><ExclamationCircleOutlined />     Impayés</span>,              children: <UnpaidReport /> },
+    { key: 'absences',    label: <span><CalendarOutlined />              Absences</span>,             children: <AbsenceReport /> },
   ]
 
   return (

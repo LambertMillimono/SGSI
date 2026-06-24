@@ -4,6 +4,7 @@ import path from 'path'
 import crypto from 'crypto'
 import type { PrismaClient } from '@prisma/client'
 import { ok, fail } from '@sgsi/shared'
+import { loadBrevoConfig, saveBrevoConfig, sendEmail, sendSms } from '../services/email.service'
 
 const DEFAULT_MODULES = [
   'students', 'grades', 'payments', 'absences', 'schedule',
@@ -224,6 +225,84 @@ export function registerSettingsIpc(db: PrismaClient): void {
       })
       return ok(null)
     } catch (e: any) { return fail('SMTP_ERROR', e.message) }
+  })
+
+  // ── Brevo (email transactionnel) ──────────────────────────────────────────────
+
+  ipcMain.handle('settings:getResendConfig', async () => {
+    try {
+      const config = loadBrevoConfig()
+      if (!config) return ok(null)
+      return ok({
+        ...config,
+        apiKey: config.apiKey ? `${'•'.repeat(16)}${config.apiKey.slice(-8)}` : '',
+      })
+    } catch { return ok(null) }
+  })
+
+  ipcMain.handle('settings:setResendConfig', async (_, config: { apiKey: string; fromName: string; fromEmail: string }) => {
+    try {
+      const existing = loadBrevoConfig()
+      const isMasked = config.apiKey.startsWith('•') || config.apiKey.includes('•'.repeat(8))
+      const apiKey   = isMasked ? (existing?.apiKey ?? '') : config.apiKey.trim()
+      saveBrevoConfig({ apiKey, fromName: config.fromName, fromEmail: config.fromEmail })
+      return ok(null)
+    } catch (e: any) { return fail('ERROR', e.message) }
+  })
+
+  ipcMain.handle('settings:testResend', async (_, testEmail: string) => {
+    try {
+      const result = await sendEmail({
+        to:      testEmail,
+        subject: '✅ Test email — SGSI SchoolManager Pro',
+        html:    `<div style="font-family:Arial,sans-serif;padding:28px;max-width:480px;background:#f0efff;border-radius:12px">
+          <h2 style="color:#6366F1;margin-bottom:12px">✅ Configuration Brevo réussie !</h2>
+          <p style="color:#374151">Si vous recevez cet email, votre configuration Brevo est correctement configurée.</p>
+          <p style="color:#6B7280;font-size:12px;margin-top:16px">SGSI SchoolManager Pro</p>
+        </div>`,
+      })
+      return ok({ id: result.id })
+    } catch (e: any) { return fail('EMAIL_ERROR', e.message) }
+  })
+
+  // ── SMS Brevo ─────────────────────────────────────────────────────────────────
+
+  ipcMain.handle('sms:send', async (_, opts: { to: string; message: string; sender?: string }) => {
+    try {
+      const result = await sendSms(opts)
+      return ok(result)
+    } catch (e: any) { return fail('SMS_ERROR', e.message) }
+  })
+
+  ipcMain.handle('sms:sendAbsenceAlert', async (_, data: {
+    parentPhone: string; studentName: string; date: string; className: string
+  }) => {
+    try {
+      const msg = `SGSI - Absence signalée pour ${data.studentName} (${data.className}) le ${data.date}. Contactez l'école pour toute information.`
+      const result = await sendSms({ to: data.parentPhone, message: msg, sender: 'SGSI' })
+      return ok(result)
+    } catch (e: any) { return fail('SMS_ERROR', e.message) }
+  })
+
+  // ── Auto-backup configuration ─────────────────────────────────────────────────
+
+  const autoBackupFilePath = () => path.join(app.getPath('userData'), 'sgsi-autobackup.json')
+
+  ipcMain.handle('settings:getAutoBackupConfig', async () => {
+    try {
+      const file = autoBackupFilePath()
+      if (!fs.existsSync(file)) return ok({ enabled: true, frequency: 'daily', lastBackupAt: null })
+      return ok(JSON.parse(fs.readFileSync(file, 'utf-8')))
+    } catch { return ok({ enabled: true, frequency: 'daily', lastBackupAt: null }) }
+  })
+
+  ipcMain.handle('settings:setAutoBackupConfig', async (_, config: { enabled: boolean; frequency: string }) => {
+    try {
+      const file   = autoBackupFilePath()
+      const existing = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf-8')) : {}
+      fs.writeFileSync(file, JSON.stringify({ ...existing, ...config }), 'utf-8')
+      return ok(null)
+    } catch (e: any) { return fail('ERROR', e.message) }
   })
 
   // ── Code de récupération (fallback sans email) ────────────────────────────────

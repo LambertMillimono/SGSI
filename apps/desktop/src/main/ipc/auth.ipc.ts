@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import type { PrismaClient } from '@prisma/client'
 import { AuthService } from '../services/auth.service'
 import { ok, fail } from '@sgsi/shared'
+import { sendEmail, loadBrevoConfig } from '../services/email.service'
 
 export function registerAuthIpc(db: PrismaClient, jwtSecret: string): void {
   const auth = new AuthService(db, jwtSecret)
@@ -62,13 +63,15 @@ export function registerAuthIpc(db: PrismaClient, jwtSecret: string): void {
       if (!user.isActive) return fail('DISABLED', 'Ce compte est désactivé. Contactez votre administrateur.')
       if (!user.email) return fail('NO_EMAIL', 'Aucune adresse email configurée pour ce compte. Demandez à votre administrateur de renseigner votre email dans Paramètres → Utilisateurs.')
 
-      const smtpFile = path.join(app.getPath('userData'), 'sgsi-smtp.json')
-      if (!fs.existsSync(smtpFile)) return fail('NO_SMTP', 'Le serveur email n\'est pas encore configuré. Demandez à l\'administrateur de le configurer dans Paramètres → Établissement.')
-      const smtp = JSON.parse(fs.readFileSync(smtpFile, 'utf-8'))
+      // Vérifier que Brevo est configuré
+      const brevoConfig = loadBrevoConfig()
+      if (!brevoConfig?.apiKey) {
+        return fail('NO_EMAIL_CONFIG', 'Le service email (Brevo) n\'est pas encore configuré. Demandez à l\'administrateur de le configurer dans Paramètres → Email (Brevo).')
+      }
 
       // Generate and store OTP (SHA-256 hash, 15-min expiry)
-      const otp = Math.floor(100000 + Math.random() * 900000).toString()
-      const hash = crypto.createHash('sha256').update(otp).digest('hex')
+      const otp    = Math.floor(100000 + Math.random() * 900000).toString()
+      const hash   = crypto.createHash('sha256').update(otp).digest('hex')
       const expiry = Date.now() + 15 * 60 * 1000
 
       const tokensFile = path.join(app.getPath('userData'), 'sgsi-reset-tokens.json')
@@ -80,35 +83,41 @@ export function registerAuthIpc(db: PrismaClient, jwtSecret: string): void {
       tokens[user.id] = { hash, expiry }
       fs.writeFileSync(tokensFile, JSON.stringify(tokens), 'utf-8')
 
-      // Send email via nodemailer
-      const nodemailer = require('nodemailer')
-      const transporter = nodemailer.createTransport({
-        host: smtp.host,
-        port: Number(smtp.port),
-        secure: smtp.secure === true || Number(smtp.port) === 465,
-        auth: { user: smtp.user, pass: smtp.password },
-        tls: { rejectUnauthorized: false },
-      })
-      const fromName  = smtp.fromName  || 'SGSI SchoolManager'
-      const fromEmail = smtp.fromEmail || smtp.user
-      await transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to: user.email,
-        subject: `Code de réinitialisation — ${fromName}`,
-        html: `
-          <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
-            <h2 style="color:#1E3A8A;margin-bottom:8px;">Réinitialisation de mot de passe</h2>
-            <p>Bonjour <strong>${user.firstName} ${user.lastName}</strong>,</p>
-            <p>Votre code de réinitialisation est :</p>
-            <div style="background:#EFF6FF;border:2px solid #2563EB;border-radius:12px;padding:24px;text-align:center;margin:20px 0;">
-              <span style="font-size:40px;font-weight:900;letter-spacing:10px;color:#1E3A8A;">${otp}</span>
-            </div>
-            <p style="color:#6B7280;font-size:14px;">Ce code est valable <strong>15 minutes</strong>. Ne le communiquez à personne.</p>
-            <p style="color:#6B7280;font-size:14px;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
-            <hr style="border:1px solid #E5E7EB;margin:24px 0;">
-            <p style="color:#9CA3AF;font-size:11px;">${fromName} — SGSI SchoolManager</p>
-          </div>
-        `,
+      const schoolName = brevoConfig.fromName || 'SGSI SchoolManager'
+
+      // Send OTP via Brevo
+      await sendEmail({
+        to:      user.email,
+        subject: `Code de réinitialisation — ${schoolName}`,
+        html: `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"/><style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#F0EFFF;padding:32px 16px;margin:0}
+  .card{max-width:520px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(99,102,241,.12)}
+  .hdr{background:linear-gradient(135deg,#1E1B4B,#6366F1);padding:28px 36px}
+  .hdr h1{color:#fff;font-size:20px;font-weight:800;margin:0}
+  .hdr p{color:rgba(255,255,255,.6);font-size:12px;margin:4px 0 0}
+  .body{padding:32px 36px}
+  .otp-box{background:#EDE9FE;border:2px solid #6366F1;border-radius:14px;padding:24px;text-align:center;margin:24px 0}
+  .otp{font-size:44px;font-weight:900;letter-spacing:12px;color:#312E81;font-family:'Courier New',monospace}
+  .note{color:#6B7280;font-size:13px;line-height:1.7}
+  .footer{background:#F9F7FF;border-top:1px solid #EDE9FE;padding:16px 36px;text-align:center}
+  .footer p{color:#A1A1AA;font-size:11px;margin:0}
+</style></head>
+<body>
+<div class="card">
+  <div class="hdr"><h1>Réinitialisation de mot de passe</h1><p>${schoolName}</p></div>
+  <div class="body">
+    <p class="note">Bonjour <strong>${user.firstName} ${user.lastName}</strong>,</p>
+    <p class="note" style="margin-top:8px">Votre code de réinitialisation à usage unique est :</p>
+    <div class="otp-box"><div class="otp">${otp}</div></div>
+    <p class="note">⏱ Ce code est valable <strong>15 minutes</strong>.</p>
+    <p class="note" style="margin-top:8px">🔒 Ne le communiquez à personne. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+  </div>
+  <div class="footer"><p>${schoolName} · SGSI SchoolManager Pro · Ne répondez pas à cet email</p></div>
+</div>
+</body>
+</html>`,
       })
 
       // Return masked email: john.doe@gmail.com → jo***@gm***.com

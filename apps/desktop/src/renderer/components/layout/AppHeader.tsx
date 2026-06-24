@@ -23,9 +23,13 @@ const PAGE_LABELS: Record<string, string> = {
   '/dashboard': 'Tableau de bord',
   '/students':  'Gestion des élèves',
   '/staff':     'Personnel enseignant',
+  '/payroll':   'Paie du personnel',
   '/grades':    'Notes & Bulletins',
   '/absences':  'Absences & Présences',
   '/schedule':  'Emploi du temps',
+  '/discipline':         'Conseil de Discipline',
+  '/payments/plans':     'Plans de paiement',
+  '/payments/discounts': 'Remises et exonérations',
   '/payments':  'Paiements',
   '/expenses':  'Dépenses',
   '/reports':   'Rapports',
@@ -205,6 +209,15 @@ export function AppHeader() {
   const { token } = theme.useToken()
   const isDark = themeMode === 'dark'
 
+  // Track window width for adaptive header
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const check = () => setNarrow(window.innerWidth < 960)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const displayName = firstName && lastName
     ? `${firstName} ${lastName}`
     : username ?? 'Utilisateur'
@@ -222,7 +235,7 @@ export function AppHeader() {
 
   return (
     <Layout.Header style={{
-      padding: '0 20px',
+      padding: '0 clamp(12px, 2vw, 24px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -231,11 +244,14 @@ export function AppHeader() {
       position: 'sticky',
       top: 0,
       zIndex: 99,
-      height: 56,
-      lineHeight: '56px',
+      height: 60,
+      lineHeight: '60px',
+      /* Prevent header from causing horizontal overflow */
+      overflow: 'hidden',
+      minWidth: 0,
     }}>
       {/* Left: toggle + breadcrumb */}
-      <Space size={12}>
+      <Space size={8} style={{ minWidth: 0, flex: '0 0 auto' }}>
         <Tooltip title={sidebarCollapsed ? 'Ouvrir le menu' : 'Réduire le menu'}>
           <Button
             type="text"
@@ -243,19 +259,27 @@ export function AppHeader() {
             onClick={() => dispatch(toggleSidebar())}
             style={{
               color: token.colorTextSecondary,
-              width: 32, height: 32,
+              width: 36, height: 36,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}
           />
         </Tooltip>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Typography.Text style={{ fontSize: 11, color: token.colorTextQuaternary }}>SGSI</Typography.Text>
-          <span style={{ color: token.colorBorder, fontSize: 12 }}>/</span>
-          <Typography.Text strong style={{ fontSize: 13, color: token.colorText }}>
-            {pageLabel}
-          </Typography.Text>
-        </div>
+        {/* Hide breadcrumb label on very narrow windows */}
+        {!narrow && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+            <Typography.Text style={{ fontSize: 11, color: token.colorTextQuaternary, whiteSpace: 'nowrap' }}>SGSI</Typography.Text>
+            <span style={{ color: token.colorBorder, fontSize: 12 }}>/</span>
+            <Typography.Text strong style={{
+              fontSize: 13, color: token.colorText,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              maxWidth: 'clamp(80px, 15vw, 220px)',
+            }}>
+              {pageLabel}
+            </Typography.Text>
+          </div>
+        )}
       </Space>
 
       {/* Right */}

@@ -1,12 +1,17 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Table, Input, Select, Button, Typography, Avatar, Tag, Space, Card, Row, Col, Statistic } from 'antd'
+import { Table, Input, Select, Button, Typography, Avatar, Tag, Space, Card, Row, Col, Statistic,
+  Modal, Tooltip, Badge, Alert } from 'antd'
 import {
   EyeOutlined, PlusOutlined, SearchOutlined, UserOutlined,
-  ManOutlined, WomanOutlined, TeamOutlined,
+  ManOutlined, WomanOutlined, TeamOutlined, UploadOutlined,
+  DownloadOutlined, FileExcelOutlined, CheckCircleOutlined,
+  CloseCircleOutlined, WarningOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import type { ColumnsType } from 'antd/es/table'
 import { ipc } from '../../utils/ipcBridge'
+import { useAuth } from '../../hooks/useAuth'
+import { useAppMessage } from '../../hooks/useAppMessage'
 import { PageHeader } from '../../components/shared/PageHeader'
 
 const { Option } = Select
@@ -43,16 +48,25 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 export function StudentListPage() {
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const { userId } = useAuth()
+  const message   = useAppMessage()
   const [students, setStudents] = useState<Student[]>([])
-  const [classes, setClasses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [classFilter, setClassFilter] = useState<string | undefined>()
+  const [classes, setClasses]   = useState<any[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [classFilter, setClassFilter]   = useState<string | undefined>()
   const [genderFilter, setGenderFilter] = useState<string | undefined>()
   const [page, setPage] = useState(1)
   const pageSize = 20
   const debouncedSearch = useDebounce(search, 300)
+
+  // ── Import Excel state ─────────────────────────────────────────
+  const [importOpen, setImportOpen]       = useState(false)
+  const [importRows, setImportRows]       = useState<any[]>([])
+  const [importFile, setImportFile]       = useState('')
+  const [importResult, setImportResult]   = useState<any>(null)
+  const [importing, setImporting]         = useState(false)
 
   const loadStudents = useCallback(async () => {
     setLoading(true)
@@ -65,6 +79,32 @@ export function StudentListPage() {
 
   useEffect(() => { loadStudents() }, [loadStudents])
   useEffect(() => { ipc.classes.list().then(setClasses).catch(() => {}) }, [])
+
+  // ── Import handlers ────────────────────────────────────────────
+  const handlePickExcel = async () => {
+    const res = await ipc.students.importExcel()
+    if (!res) return
+    setImportRows(res.rows ?? [])
+    setImportFile(res.file ?? '')
+    setImportResult(null)
+    setImportOpen(true)
+  }
+
+  const handleConfirmImport = async () => {
+    setImporting(true)
+    try {
+      const result = await ipc.students.confirmImport(importRows, userId ?? 'system')
+      setImportResult(result)
+      if (result.created > 0) {
+        message.success(`${result.created} élève(s) importé(s) avec succès`)
+        loadStudents()
+      }
+    } catch (e: any) {
+      message.error(e.message)
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const filtered = genderFilter ? students.filter(s => s.gender === genderFilter) : students
   const males = students.filter(s => s.gender === 'MALE').length
@@ -193,12 +233,134 @@ export function StudentListPage() {
       <PageHeader
         title="Gestion des Élèves"
         subtitle={`${students.length} élève${students.length !== 1 ? 's' : ''} enregistré${students.length !== 1 ? 's' : ''}`}
+        icon={<TeamOutlined />}
         actions={
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => navigate('/students/new')}>
-            Inscrire un élève
-          </Button>
+          <Space size={8}>
+            <Tooltip title="Télécharger le modèle Excel vide">
+              <Button icon={<DownloadOutlined />} onClick={() => ipc.students.downloadTemplate()}>
+                Modèle
+              </Button>
+            </Tooltip>
+            <Tooltip title="Importer des élèves depuis un fichier Excel">
+              <Button icon={<UploadOutlined />} onClick={handlePickExcel}>
+                Importer Excel
+              </Button>
+            </Tooltip>
+            <Tooltip title="Exporter la liste en Excel">
+              <Button icon={<FileExcelOutlined />} onClick={() => ipc.students.exportExcel(classFilter)}>
+                Exporter
+              </Button>
+            </Tooltip>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/students/new')}>
+              Inscrire un élève
+            </Button>
+          </Space>
         }
       />
+
+      {/* ── Import Excel Modal ── */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <FileExcelOutlined style={{ color: '#059669', fontSize: 18 }} />
+            <div>
+              <div style={{ fontWeight: 700 }}>Import Excel — {importFile}</div>
+              <div style={{ fontSize: 12, color: '#6B7280', fontWeight: 400 }}>
+                {importRows.length} ligne(s) détectée(s) ·{' '}
+                <span style={{ color: '#059669' }}>{importRows.filter(r => r.valid).length} valide(s)</span>
+                {importRows.filter(r => !r.valid).length > 0 && (
+                  <span style={{ color: '#DC2626' }}> · {importRows.filter(r => !r.valid).length} erreur(s)</span>
+                )}
+              </div>
+            </div>
+          </div>
+        }
+        open={importOpen}
+        onCancel={() => { setImportOpen(false); setImportRows([]); setImportResult(null) }}
+        footer={
+          importResult ? (
+            <Button type="primary" onClick={() => { setImportOpen(false); setImportRows([]); setImportResult(null) }}>
+              Fermer
+            </Button>
+          ) : (
+            <Space>
+              <Button onClick={() => { setImportOpen(false); setImportRows([]); setImportResult(null) }}>Annuler</Button>
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                loading={importing}
+                disabled={importRows.filter(r => r.valid).length === 0}
+                onClick={handleConfirmImport}
+                style={{ background: '#059669', borderColor: '#059669' }}
+              >
+                Importer {importRows.filter(r => r.valid).length} élève(s)
+              </Button>
+            </Space>
+          )
+        }
+        width={720}
+        destroyOnHidden
+      >
+        {importResult ? (
+          <div style={{ padding: '8px 0' }}>
+            <Alert
+              type={importResult.created > 0 ? 'success' : 'warning'}
+              showIcon
+              message={
+                <span>
+                  <strong>{importResult.created}</strong> élève(s) créé(s) ·{' '}
+                  <strong>{importResult.duplicates}</strong> doublon(s) ignoré(s) ·{' '}
+                  <strong>{importResult.errors}</strong> erreur(s)
+                </span>
+              }
+              style={{ borderRadius: 10, marginBottom: 16 }}
+            />
+          </div>
+        ) : (
+          <div>
+            <Alert
+              type="info" showIcon
+              message="Vérifiez les données avant de confirmer l'import. Les lignes avec erreur seront ignorées."
+              style={{ borderRadius: 10, marginBottom: 16, fontSize: 12 }}
+            />
+            <Table
+              dataSource={importRows}
+              rowKey="rowNum"
+              size="small"
+              pagination={{ pageSize: 10 }}
+              rowClassName={r => r.valid ? '' : 'import-row-error'}
+              columns={[
+                {
+                  title: '', key: 'status', width: 32,
+                  render: (_, r) => r.valid
+                    ? <CheckCircleOutlined style={{ color: '#059669' }} />
+                    : <Tooltip title={r.errors?.join(', ')}>
+                        <CloseCircleOutlined style={{ color: '#DC2626' }} />
+                      </Tooltip>,
+                },
+                { title: 'Nom',     dataIndex: 'lastName',  key: 'ln', width: 110 },
+                { title: 'Prénom',  dataIndex: 'firstName', key: 'fn', width: 110 },
+                {
+                  title: 'Sexe', dataIndex: 'genderRaw', key: 'g', width: 90,
+                  render: (v, r) => r.gender
+                    ? <Tag style={{ background: r.gender === 'MALE' ? '#DBEAFE' : '#FCE7F3', color: r.gender === 'MALE' ? '#1D4ED8' : '#BE185D', border: 'none', borderRadius: 20, fontSize: 10 }}>{v}</Tag>
+                    : <Tag style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 20, fontSize: 10 }}>{v || 'Manquant'}</Tag>,
+                },
+                { title: 'Date naissance', dataIndex: 'birthDate', key: 'bd', width: 120,
+                  render: v => v ? v : <span style={{ color: '#9CA3AF' }}>—</span> },
+                { title: 'Classe', dataIndex: 'birthPlace', key: 'bp', width: 100,
+                  render: v => v || <span style={{ color: '#9CA3AF' }}>—</span> },
+                {
+                  title: 'Erreurs', key: 'err',
+                  render: (_, r) => r.errors?.length > 0
+                    ? <span style={{ color: '#DC2626', fontSize: 11 }}>{r.errors.join(', ')}</span>
+                    : <span style={{ color: '#059669', fontSize: 11 }}>OK</span>,
+                },
+              ]}
+            />
+          </div>
+        )}
+      </Modal>
 
       {/* Stats row */}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>

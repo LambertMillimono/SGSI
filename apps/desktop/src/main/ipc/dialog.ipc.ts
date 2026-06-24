@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell } from 'electron'
+import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
 import fs from 'fs'
 import path from 'path'
 
@@ -48,5 +48,19 @@ export function registerDialogIpc(): void {
   ipcMain.handle('shell:openPath', async (_, filePath: string) => {
     try { await shell.openPath(filePath); return ok(null) }
     catch (e: any) { return fail(e.message) }
+  })
+
+  // Open an HTML string in a print-ready Electron window (PDF export)
+  ipcMain.handle('dialog:openPrintWindow', async (_, html: string, _filename?: string) => {
+    try {
+      const win = new BrowserWindow({
+        width: 900, height: 700, show: false,
+        title: _filename ?? 'Impression SGSI',
+        webPreferences: { contextIsolation: true, nodeIntegration: false },
+      })
+      win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+      win.once('ready-to-show', () => win.show())
+      return ok(null)
+    } catch (e: any) { return fail(e.message) }
   })
 }

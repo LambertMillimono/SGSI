@@ -1,8 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
+import { useSelector } from 'react-redux'
+import type { RootState } from '../../store'
+import { LicenseAdminPage } from '../license/LicenseAdminPage'
+
+function LicenseAdminSection() { return <LicenseAdminPage /> }
 import {
   Tabs, Form, Input, Button, Table, Tag, Modal, Select,
   Card, Space, Popconfirm, Typography, Alert, InputNumber,
-  DatePicker, Switch, Tooltip, Badge, Spin, Divider,
+  DatePicker, Switch, Tooltip, Badge, Spin, Divider, Row, Col, theme,
 } from 'antd'
 import { useAppMessage } from '../../hooks/useAppMessage'
 import {
@@ -10,6 +15,8 @@ import {
   SaveOutlined, DatabaseOutlined, UploadOutlined, CheckCircleOutlined,
   HistoryOutlined, SafetyCertificateOutlined, AppstoreOutlined, LockOutlined,
   BookOutlined, CheckOutlined, WarningOutlined,
+  BankOutlined, CalendarOutlined, TeamOutlined, ReadOutlined, DollarOutlined,
+  StarOutlined, MailOutlined, CloudDownloadOutlined,
 } from '@ant-design/icons'
 import { ALL_MODULES, useModules } from '../../contexts/ModulesContext'
 import dayjs from 'dayjs'
@@ -368,22 +375,6 @@ function SchoolTab() {
           <Input type="email" placeholder="contact@ecole.gn" />
         </Form.Item>
 
-        <Title level={5}>Paramètres pédagogiques</Title>
-
-        <Form.Item name="passingAverage" label="Moyenne de passage (/20)">
-          <Space.Compact>
-            <Input type="number" min={0} max={20} step={0.5} style={{ width: 100 }} />
-            <Input style={{ width: 48, textAlign: 'center', pointerEvents: 'none', background: '#f5f5f5' }} value="/20" readOnly />
-          </Space.Compact>
-        </Form.Item>
-
-        <Form.Item name="eliminatoryThreshold" label="Note éliminatoire (/20)">
-          <Space.Compact>
-            <Input type="number" min={0} max={20} step={0.5} style={{ width: 100 }} />
-            <Input style={{ width: 48, textAlign: 'center', pointerEvents: 'none', background: '#f5f5f5' }} value="/20" readOnly />
-          </Space.Compact>
-        </Form.Item>
-
         <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
           Enregistrer
         </Button>
@@ -391,10 +382,21 @@ function SchoolTab() {
 
       <Divider />
       <Title level={5} style={{ marginBottom: 12 }}>
-        <KeyOutlined style={{ marginRight: 8, color: '#1E40AF' }} />
-        Réinitialisation par email (SMTP)
+        <KeyOutlined style={{ marginRight: 8, color: '#6366F1' }} />
+        Réinitialisation par email
       </Title>
-      <SmtpConfigSection />
+      <Alert
+        type="success"
+        showIcon
+        message={<span>✅ Géré par <strong>Brevo</strong></span>}
+        description={
+          <span>
+            Les emails de réinitialisation de mot de passe sont envoyés via Brevo (configuré dans l'onglet{' '}
+            <strong>Email (Brevo)</strong>). SMTP n'est plus nécessaire.
+          </span>
+        }
+        style={{ borderRadius: 10, fontSize: 13 }}
+      />
 
       <Divider />
       <Title level={5} style={{ marginBottom: 12 }}>
@@ -1149,15 +1151,30 @@ function SubjectsTab() {
 // ─── Onglet Sauvegarde ─────────────────────────────────────────────────────────
 function BackupTab() {
   const message = useAppMessage()
-  const [backups, setBackups] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [backups,   setBackups]   = useState<any[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [saving,    setSaving]    = useState(false)
+  const [autoEnabled, setAutoEnabled] = useState(false)
+  const [autoFreq,  setAutoFreq]  = useState<'daily' | 'weekly'>('daily')
+  const [lastAuto,  setLastAuto]  = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
 
   const loadBackups = () => {
     ipc.backup.list().then(setBackups).catch(() => {}).finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadBackups() }, [])
+  const loadAutoConfig = async () => {
+    try {
+      const cfg = await ipc.settings.getAutoBackupConfig()
+      if (cfg) {
+        setAutoEnabled(cfg.enabled ?? false)
+        setAutoFreq(cfg.frequency ?? 'daily')
+        setLastAuto(cfg.lastBackupAt ?? null)
+      }
+    } catch {}
+  }
+
+  useEffect(() => { loadBackups(); loadAutoConfig() }, [])
 
   const handleBackup = async (format: 'db' | 'zip') => {
     setSaving(true)
@@ -1167,51 +1184,124 @@ function BackupTab() {
       loadBackups()
     } catch (e: any) {
       message.error(e.message ?? 'Erreur lors de la sauvegarde')
-    } finally {
-      setSaving(false)
+    } finally { setSaving(false) }
+  }
+
+  const handleSaveAutoConfig = async () => {
+    try {
+      await ipc.settings.setAutoBackupConfig({ enabled: autoEnabled, frequency: autoFreq })
+      message.success('Configuration de sauvegarde automatique enregistrée')
+    } catch (e: any) {
+      message.error(e.message)
     }
+  }
+
+  const handleRestore = async () => {
+    setRestoring(true)
+    try {
+      const ok = await ipc.backup.restore()
+      if (ok) message.success('Base de données restaurée. Redémarrez l\'application.')
+    } catch (e: any) {
+      message.error(e.message)
+    } finally { setRestoring(false) }
   }
 
   return (
     <div style={{ maxWidth: 700 }}>
+      {/* Sauvegarde manuelle */}
       <Card style={{ marginBottom: 16 }}>
-        <Title level={5} style={{ marginTop: 0 }}>Créer une sauvegarde</Title>
+        <Title level={5} style={{ marginTop: 0 }}>Sauvegarde manuelle</Title>
         <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-          La sauvegarde copie la base de données dans le dossier Documents/SGSI/backups.
-          Copiez ensuite ce fichier sur une clé USB ou un disque externe.
+          Crée une copie de la base dans <strong>Documents/SGSI/backups</strong>. Copiez ensuite sur une clé USB.
         </Text>
         <Space>
-          <Button
-            type="primary"
-            icon={<DatabaseOutlined />}
-            loading={saving}
-            onClick={() => handleBackup('db')}
-          >
+          <Button type="primary" icon={<DatabaseOutlined />} loading={saving} onClick={() => handleBackup('db')}>
             Sauvegarder (.db)
           </Button>
-          <Button
-            icon={<DatabaseOutlined />}
-            loading={saving}
-            onClick={() => handleBackup('zip')}
-          >
-            Sauvegarder (.zip)
+          <Button icon={<DatabaseOutlined />} loading={saving} onClick={() => handleBackup('zip')}>
+            Sauvegarder (.zip avec photos)
           </Button>
         </Space>
       </Card>
 
+      {/* Sauvegarde automatique */}
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>Sauvegarde automatique</Title>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              SGSI sauvegarde automatiquement la base de données selon la fréquence choisie.
+            </Text>
+          </div>
+          <Switch
+            checked={autoEnabled}
+            onChange={setAutoEnabled}
+            checkedChildren="Activée"
+            unCheckedChildren="Désactivée"
+          />
+        </div>
+
+        {autoEnabled && (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <Text style={{ fontSize: 12, display: 'block', marginBottom: 6, fontWeight: 600 }}>Fréquence</Text>
+              <Select value={autoFreq} onChange={setAutoFreq} style={{ width: 180 }}>
+                <Select.Option value="daily">Chaque jour</Select.Option>
+                <Select.Option value="weekly">Chaque semaine</Select.Option>
+              </Select>
+            </div>
+            {lastAuto && (
+              <div style={{ alignSelf: 'flex-end', paddingBottom: 4 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Dernière sauvegarde : <strong>{dayjs(lastAuto).format('DD/MM/YYYY à HH:mm')}</strong>
+                </Text>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ marginTop: 16 }}>
+          <Button type="primary" onClick={handleSaveAutoConfig} icon={<SaveOutlined />}>
+            Enregistrer la configuration
+          </Button>
+        </div>
+
+        {autoEnabled && (
+          <Alert
+            type="info" showIcon
+            message={`La sauvegarde automatique est activée — ${autoFreq === 'daily' ? 'quotidienne' : 'hebdomadaire'}. Les sauvegardes se trouvent dans Documents/SGSI/backups.`}
+            style={{ marginTop: 14, borderRadius: 8 }}
+          />
+        )}
+      </Card>
+
+      {/* Restauration */}
+      <Card style={{ marginBottom: 16 }}>
+        <Title level={5} style={{ marginTop: 0, color: '#DC2626' }}>
+          <WarningOutlined style={{ marginRight: 8 }} />Restaurer une sauvegarde
+        </Title>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 14 }}>
+          Remplace la base de données actuelle par une sauvegarde. <strong>Toutes les données non sauvegardées seront perdues.</strong>
+        </Text>
+        <Button danger icon={<UploadOutlined />} loading={restoring} onClick={handleRestore}>
+          Choisir un fichier de sauvegarde…
+        </Button>
+      </Card>
+
+      {/* Liste des sauvegardes */}
       <Table
-        title={() => <Text strong>Sauvegardes existantes</Text>}
+        title={() => <Text strong>Sauvegardes disponibles</Text>}
         dataSource={backups}
         rowKey={(r: any, i?: number) => r.filePath ?? String(i ?? 0)}
         loading={loading}
-        pagination={false}
+        pagination={{ pageSize: 8 }}
         size="small"
         columns={[
-          { title: 'Fichier', dataIndex: 'fileName', key: 'fileName' },
-          { title: 'Date', dataIndex: 'createdAt', key: 'date', render: (v: string) => dayjs(v).format('DD/MM/YYYY HH:mm') },
-          { title: 'Taille', dataIndex: 'size', key: 'size', render: (v: number) => `${(v / 1024).toFixed(0)} KB` },
+          { title: 'Fichier', dataIndex: 'fileName', key: 'fileName', render: (v: string) => <Text code style={{ fontSize: 11 }}>{v}</Text> },
+          { title: 'Date', dataIndex: 'createdAt', key: 'date', width: 150, render: (v: string) => dayjs(v).format('DD/MM/YYYY HH:mm') },
+          { title: 'Taille', dataIndex: 'size', key: 'size', width: 90, render: (v: number) => `${(v / 1024).toFixed(0)} KB` },
         ]}
-        locale={{ emptyText: 'Aucune sauvegarde' }}
+        locale={{ emptyText: 'Aucune sauvegarde trouvée' }}
       />
     </div>
   )
@@ -1660,15 +1750,18 @@ const PLAN_COLORS: Record<string, string> = {
 }
 
 function LicenseTab() {
-  const message = useAppMessage()
-  const [license, setLicense] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const message    = useAppMessage()
+  const [info,     setInfo]       = useState<any>(null)
+  const [loading,  setLoading]    = useState(true)
   const [activating, setActivating] = useState(false)
-  const [key, setKey] = useState('')
+  const [key,      setKey]        = useState('')
 
   const load = () => {
     setLoading(true)
-    ipc.license.get().then(setLicense).catch(() => {}).finally(() => setLoading(false))
+    ipc.license.get()
+      .then(res => setInfo(res))
+      .catch(() => setInfo(null))
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])
@@ -1678,94 +1771,156 @@ function LicenseTab() {
     setActivating(true)
     try {
       await ipc.license.activate(key.trim())
-      message.success('Licence activée avec succès')
+      message.success('Licence activée avec succès !')
       setKey('')
       load()
     } catch (e: any) {
-      message.error(e.message ?? 'Erreur d\'activation')
+      message.error(e.message ?? "Erreur d'activation")
     } finally { setActivating(false) }
   }
 
-  const isExpired = license?.expiresAt && new Date() > new Date(license.expiresAt)
-  const isValid = license?.isActive && !isExpired
+  // Extraction des données depuis la nouvelle structure { db, cache, validity }
+  const lic      = info?.db ?? info?.cache ?? null
+  const validity = info?.validity ?? null
+  const isValid  = validity?.valid ?? (lic?.isActive ?? false)
+  const isExpired = lic?.expiresAt ? new Date() > new Date(lic.expiresAt) : false
+  const isGrace  = validity?.source === 'grace'
+
+  const SOURCE_LABELS: Record<string, string> = {
+    server: 'Validée en ligne',
+    grace:  `Mode hors-ligne (${validity?.daysLeft ?? '?'} jour(s) restant(s))`,
+    cache:  'Cache local',
+    db:     'Base locale',
+  }
+
+  const statusBadge = () => {
+    if (!lic) return <Badge status="default" text="Non configurée" />
+    if (!isValid) {
+      if (isExpired)       return <Badge status="error"   text="Expirée" />
+      if (validity?.reason) return <Badge status="error"   text={validity.reason} />
+      return                      <Badge status="warning" text="Désactivée" />
+    }
+    if (isGrace) return <Badge status="warning" text={SOURCE_LABELS.grace} />
+    return              <Badge status="success" text="Active" />
+  }
 
   return (
-    <div style={{ maxWidth: 700 }}>
-      {/* Statut actuel */}
+    <div style={{ maxWidth: 680 }}>
+
+      {/* ── Statut ── */}
       <Card loading={loading} style={{ marginBottom: 16 }}>
-        <Title level={5} style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <SafetyCertificateOutlined style={{ color: isValid ? '#16A34A' : '#DC2626' }} />
+        <Title level={5} style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <SafetyCertificateOutlined style={{ color: isValid ? '#16A34A' : isGrace ? '#D97706' : '#DC2626' }} />
           Statut de la licence
         </Title>
 
-        {!license ? (
+        {!lic ? (
           <Alert
             type="warning"
+            showIcon
             message="Aucune licence active"
-            description="Entrez votre clé de licence pour activer l'application."
-            style={{ marginBottom: 0 }}
+            description="Activez une clé de licence pour utiliser toutes les fonctionnalités."
+            style={{ marginBottom: 0, borderRadius: 8 }}
           />
         ) : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', fontSize: 13 }}>
-              <Text strong>Statut</Text>
-              <div>
-                {isValid
-                  ? <Badge status="success" text="Active" />
-                  : isExpired
-                    ? <Badge status="error" text="Expirée" />
-                    : <Badge status="warning" text="Désactivée" />
-                }
-              </div>
-              <Text strong>Plan</Text>
-              <Tag color={PLAN_COLORS[license.plan] ?? 'default'}>{PLAN_LABELS[license.plan] ?? license.plan}</Tag>
-              <Text strong>École</Text>
-              <Text>{license.schoolName}</Text>
-              <Text strong>Clé</Text>
-              <Text code style={{ fontSize: 12 }}>{license.key}</Text>
-              <Text strong>Activée le</Text>
-              <Text>{dayjs(license.issuedAt).format('DD/MM/YYYY')}</Text>
-              <Text strong>Expiration</Text>
+            {/* Alerte grace period */}
+            {isGrace && (
+              <Alert
+                type="warning" showIcon
+                message={`Mode hors-ligne — ${validity?.daysLeft ?? '?'} jour(s) avant expiration`}
+                description="Connectez-vous à Internet pour re-valider votre licence."
+                style={{ marginBottom: 16, borderRadius: 8 }}
+              />
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '10px 16px', fontSize: 13, alignItems: 'center' }}>
+              <Text type="secondary">Statut</Text>
+              {statusBadge()}
+
+              <Text type="secondary">Plan</Text>
+              <Tag color={PLAN_COLORS[lic.plan] ?? 'default'} style={{ fontWeight: 600 }}>
+                {PLAN_LABELS[lic.plan] ?? lic.plan ?? '—'}
+              </Tag>
+
+              <Text type="secondary">École</Text>
+              <Text strong>{lic.schoolName || '—'}</Text>
+
+              <Text type="secondary">Clé</Text>
+              <Text code style={{ fontSize: 12, letterSpacing: 1 }}>{lic.key}</Text>
+
+              <Text type="secondary">Élèves max.</Text>
+              <Text strong>{(lic.maxStudents ?? 0).toLocaleString()} élèves</Text>
+
+              <Text type="secondary">Activée le</Text>
+              <Text>{lic.issuedAt ? dayjs(lic.issuedAt).format('DD/MM/YYYY') : '—'}</Text>
+
+              <Text type="secondary">Expiration</Text>
               <Text style={{ color: isExpired ? '#DC2626' : undefined }}>
-                {license.expiresAt ? dayjs(license.expiresAt).format('DD/MM/YYYY') : 'Illimitée'}
+                {lic.expiresAt ? dayjs(lic.expiresAt).format('DD/MM/YYYY') : 'Illimitée'}
               </Text>
-              <Text strong>Élèves max.</Text>
-              <Text>{license.maxStudents.toLocaleString()}</Text>
+
+              {validity?.source && !isGrace && (
+                <>
+                  <Text type="secondary">Source</Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {SOURCE_LABELS[validity.source] ?? validity.source}
+                  </Text>
+                </>
+              )}
             </div>
           </>
         )}
       </Card>
 
-      {/* Activation */}
+      {/* ── Activation ── */}
       <Card>
-        <Title level={5} style={{ marginTop: 0 }}>Activer / Renouveler une licence</Title>
+        <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
+          {lic ? 'Renouveler / Changer de licence' : 'Activer une licence'}
+        </Title>
         <Text type="secondary" style={{ display: 'block', marginBottom: 16, fontSize: 13 }}>
-          Entrez la clé fournie par votre revendeur SGSI. Format : <Text code>SGSI-PRO-XXXXXX-2026</Text>
+          Entrez la clé fournie par votre distributeur SGSI.
+          Format : <Text code style={{ fontSize: 12 }}>SGSI-PRO-XXXXXX-2027</Text>
         </Text>
-        <Space.Compact style={{ width: '100%' }}>
+
+        <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
           <Input
-            placeholder="SGSI-STD-XXXXXX-2026"
+            placeholder="SGSI-STD-XXXXXX-2027"
             value={key}
-            onChange={(e) => setKey(e.target.value.toUpperCase())}
+            onChange={e => setKey(e.target.value.toUpperCase())}
             onPressEnter={handleActivate}
-            style={{ fontFamily: 'monospace', letterSpacing: 1 }}
+            style={{ fontFamily: 'monospace', letterSpacing: 1, fontSize: 14 }}
             maxLength={32}
+            prefix={<KeyOutlined style={{ color: '#6B7280' }} />}
           />
           <Button
             type="primary"
             loading={activating}
             onClick={handleActivate}
-            icon={<KeyOutlined />}
+            icon={<SafetyCertificateOutlined />}
           >
             Activer
           </Button>
         </Space.Compact>
 
-        <Tooltip title="Contactez votre distributeur pour obtenir une clé">
-          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 12 }}>
-            Plans disponibles : Standard (500 élèves) · Professionnel (2 000 élèves) · Ultimate (illimité)
+        <div style={{
+          background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
+          borderRadius: 8, padding: '10px 14px', fontSize: 12,
+        }}>
+          <Text strong style={{ color: '#6366F1', display: 'block', marginBottom: 4 }}>
+            Plans disponibles
           </Text>
-        </Tooltip>
+          {[
+            { plan: 'STD', label: 'Standard',     max: '500',   color: 'default' },
+            { plan: 'PRO', label: 'Professionnel', max: '2 000', color: 'blue'   },
+            { plan: 'ULT', label: 'Ultimate',      max: 'Illimité', color: 'gold' },
+          ].map(p => (
+            <div key={p.plan} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <Text type="secondary"><Tag color={p.color} style={{ fontSize: 10 }}>{p.plan}</Tag> {p.label}</Text>
+              <Text type="secondary">{p.max} élèves</Text>
+            </div>
+          ))}
+        </div>
       </Card>
     </div>
   )
@@ -2018,28 +2173,503 @@ function ProgrammeTab() {
   )
 }
 
-// ─── Page principale ───────────────────────────────────────────────────────────
+// ─── Onglet Appréciations ──────────────────────────────────────────────────────
+function AppreciationTab() {
+  const message = useAppMessage()
+  const [ranges, setRanges] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try { setRanges(await ipc.appreciation.getRanges()) }
+    catch (e: any) { message.error(e.message) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const update = (index: number, field: string, value: any) => {
+    setRanges(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r))
+  }
+
+  const handleSave = async () => {
+    // Validate: ranges should cover 0-20 without major gaps
+    setSaving(true)
+    try {
+      await ipc.appreciation.saveRanges(ranges)
+      message.success('Appréciations sauvegardées')
+    } catch (e: any) { message.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleReset = async () => {
+    try {
+      const defaults = await ipc.appreciation.reset()
+      setRanges(defaults)
+      message.success('Appréciations remises aux valeurs par défaut')
+    } catch (e: any) { message.error(e.message) }
+  }
+
+  const SWATCH_COLORS = ['#059669','#10B981','#3B82F6','#6366F1','#F59E0B','#DC2626','#7C3AED','#0EA5E9']
+
+  return (
+    <div>
+      <Alert
+        type="info" showIcon
+        message="Configurez les plages de notes et leurs appréciations correspondantes. Ces appréciations seront utilisées lors de la génération des bulletins."
+        style={{ borderRadius: 10, marginBottom: 20, fontSize: 12 }}
+      />
+
+      {loading ? <Spin /> : (
+        <>
+          <Table
+            dataSource={ranges}
+            rowKey={(r, i) => String(i)}
+            size="small"
+            pagination={false}
+            columns={[
+              {
+                title: 'Note minimum', dataIndex: 'min', key: 'min', width: 140,
+                render: (v: number, _: any, i: number) => (
+                  <InputNumber
+                    value={v} min={0} max={20} step={0.5}
+                    style={{ width: '100%' }}
+                    onChange={val => update(i, 'min', val)}
+                  />
+                ),
+              },
+              {
+                title: 'Note maximum', dataIndex: 'max', key: 'max', width: 140,
+                render: (v: number, _: any, i: number) => (
+                  <InputNumber
+                    value={v} min={0} max={20} step={0.5}
+                    style={{ width: '100%' }}
+                    onChange={val => update(i, 'max', val)}
+                  />
+                ),
+              },
+              {
+                title: 'Appréciation', dataIndex: 'label', key: 'label',
+                render: (v: string, _: any, i: number) => (
+                  <Input
+                    value={v}
+                    onChange={e => update(i, 'label', e.target.value)}
+                    placeholder="Ex: Très Bien"
+                  />
+                ),
+              },
+              {
+                title: 'Couleur', dataIndex: 'color', key: 'color', width: 160,
+                render: (v: string, _: any, i: number) => (
+                  <Select
+                    value={v}
+                    onChange={val => update(i, 'color', val)}
+                    style={{ width: '100%' }}
+                  >
+                    {SWATCH_COLORS.map(c => (
+                      <Select.Option key={c} value={c}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 14, height: 14, borderRadius: 3, background: c, display: 'inline-block' }} />
+                          {c}
+                        </span>
+                      </Select.Option>
+                    ))}
+                  </Select>
+                ),
+              },
+              {
+                title: 'Aperçu', key: 'preview', width: 120,
+                render: (_: any, r: any) => (
+                  <Tag style={{
+                    background: `${r.color}18`, color: r.color,
+                    border: 'none', borderRadius: 20, fontWeight: 600,
+                  }}>
+                    {r.label}
+                  </Tag>
+                ),
+              },
+            ]}
+          />
+
+          <Space style={{ marginTop: 16 }}>
+            <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
+              Enregistrer
+            </Button>
+            <Button onClick={handleReset}>Remettre par défaut</Button>
+          </Space>
+
+          <Divider />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Exemple : note de 16.50 → se situe entre 16.00 et 17.99 → reçoit l'appréciation "Très Bien"
+          </Text>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Onglet Email (Resend) ─────────────────────────────────────────────────────
+function ResendTab() {
+  const message   = useAppMessage()
+  const [form]    = Form.useForm()
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+  const [testing, setTesting]   = useState(false)
+  const [testEmail, setTestEmail] = useState('')
+  const [configured, setConfigured] = useState(false)
+
+  useEffect(() => {
+    ipc.settings.getResendConfig()
+      .then(cfg => {
+        if (cfg) {
+          form.setFieldsValue(cfg)
+          setConfigured(true)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSave = async (values: any) => {
+    setSaving(true)
+    try {
+      await ipc.settings.setResendConfig(values)
+      setConfigured(true)
+      message.success('Configuration Resend enregistrée')
+    } catch (e: any) { message.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleTest = async () => {
+    if (!testEmail) return message.warning('Entrez un email de test')
+    setTesting(true)
+    try {
+      const result = await ipc.settings.testResend(testEmail)
+      message.success(`Email envoyé avec succès ! (ID: ${result.id})`)
+    } catch (e: any) { message.error(e.message) }
+    finally { setTesting(false) }
+  }
+
+  if (loading) return <Spin />
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <Alert
+        type="info" showIcon
+        message={
+          <span>
+            Configuration de <strong>Brevo.com</strong> pour l'envoi automatique des identifiants aux enseignants.
+            300 emails/jour gratuits · Envoi depuis Gmail possible.
+            {' '}<a href="https://app.brevo.com/settings/keys/api" target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
+              Obtenir une clé API →
+            </a>
+          </span>
+        }
+        style={{ borderRadius: 10, marginBottom: 24, fontSize: 13 }}
+      />
+
+      <Form form={form} layout="vertical" onFinish={handleSave} requiredMark={false}>
+        <Form.Item
+          name="apiKey"
+          label={<span style={{ fontWeight: 600 }}>Clé API Resend</span>}
+          rules={[{ required: true, message: 'La clé API est requise' }]}
+          extra={<span style={{ fontSize: 11, color: '#6B7280' }}>Commence par <code>re_</code> — disponible sur resend.com/api-keys</span>}
+        >
+          <Input.Password
+            placeholder="re_••••••••••••••••••••••••"
+            autoComplete="off"
+          />
+        </Form.Item>
+
+        <Divider orientation="left" style={{ fontSize: 12, color: '#6B7280' }}>Expéditeur</Divider>
+
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item name="fromName" label="Nom de l'expéditeur" rules={[{ required: true }]}>
+              <Input placeholder="Ex: SGSI — Lycée Excellence" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="fromEmail"
+              label="Email expéditeur"
+              rules={[{ required: true, type: 'email', message: 'Email invalide' }]}
+              extra={<span style={{ fontSize: 11, color: '#6B7280' }}>Doit être un domaine vérifié sur Resend</span>}
+            >
+              <Input placeholder="noreply@votre-ecole.com" />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
+          Enregistrer la configuration
+        </Button>
+      </Form>
+
+      {configured && (
+        <>
+          <Divider />
+          <div>
+            <Title level={5} style={{ marginBottom: 12 }}>Tester l'envoi</Title>
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                placeholder="Votre email de test"
+                value={testEmail}
+                onChange={e => setTestEmail(e.target.value)}
+                type="email"
+                style={{ flex: 1 }}
+              />
+              <Button loading={testing} icon={<CheckOutlined />} onClick={handleTest}>
+                Envoyer un test
+              </Button>
+            </Space.Compact>
+          </div>
+        </>
+      )}
+
+      <Divider />
+
+      <Alert
+        type="success" showIcon
+        message="Fonctionnement automatique"
+        description={
+          <ul style={{ margin: '6px 0', paddingLeft: 18, fontSize: 12, lineHeight: 2 }}>
+            <li>Lors de la création d'un enseignant avec un email renseigné, un email est automatiquement envoyé avec ses identifiants et son mot de passe temporaire.</li>
+            <li>L'email contient le nom de l'école, l'identifiant, le mot de passe et les instructions de première connexion.</li>
+            <li>Si Resend n'est pas configuré ou si l'enseignant n'a pas d'email, le compte est créé normalement sans envoi.</li>
+          </ul>
+        }
+        style={{ borderRadius: 10, fontSize: 12 }}
+      />
+    </div>
+  )
+}
+
+// ─── Page principale — Navigation verticale gauche (Stripe style) ─────────────
+const SETTINGS_NAV: Array<{
+  group: string
+  items: Array<{ key: string; icon: React.ReactNode; label: string; subtitle: string }>
+}> = [
+  {
+    group: 'École',
+    items: [
+      { key: 'school',      icon: <BankOutlined />,         label: 'Établissement',    subtitle: 'Nom, logo, adresse, contacts' },
+      { key: 'years',       icon: <CalendarOutlined />,     label: 'Années scolaires', subtitle: 'Années académiques actives' },
+      { key: 'classes',     icon: <TeamOutlined />,         label: 'Classes & Niveaux',subtitle: 'Structure pédagogique' },
+      { key: 'subjects',    icon: <BookOutlined />,          label: 'Matières',         subtitle: 'Matières et coefficients' },
+      { key: 'programme',   icon: <ReadOutlined />,         label: 'Programme',        subtitle: 'Contenus et objectifs' },
+    ],
+  },
+  {
+    group: 'Finance',
+    items: [
+      { key: 'feeTypes',    icon: <DollarOutlined />,       label: 'Frais scolaires',  subtitle: 'Types de frais et montants' },
+    ],
+  },
+  {
+    group: 'Pédagogie',
+    items: [
+      { key: 'appreciation',icon: <StarOutlined />,         label: 'Appréciations',    subtitle: 'Plages de notes' },
+    ],
+  },
+  {
+    group: 'Gestion',
+    items: [
+      { key: 'users',       icon: <UserAddOutlined />,      label: 'Utilisateurs',     subtitle: 'Comptes et rôles' },
+      { key: 'modules',     icon: <AppstoreOutlined />,     label: 'Modules',          subtitle: 'Fonctionnalités actives' },
+      { key: 'email',       icon: <MailOutlined />,         label: 'Email (Brevo)',    subtitle: 'Envoi automatique' },
+    ],
+  },
+  {
+    group: 'Système',
+    items: [
+      { key: 'backup',       icon: <CloudDownloadOutlined />,        label: 'Sauvegarde',        subtitle: 'Backup et restauration' },
+      { key: 'license',      icon: <SafetyCertificateOutlined />,    label: 'Licence',           subtitle: 'Informations de licence' },
+      { key: 'licenseAdmin', icon: <KeyOutlined />,                  label: '🔑 Générer une clé', subtitle: 'Créer et envoyer des licences' },
+      { key: 'auditlog',     icon: <HistoryOutlined />,              label: "Journal",            subtitle: 'Historique des actions' },
+    ],
+  },
+]
+
+const SETTINGS_CONTENT: Record<string, React.ReactNode> = {
+  school:       <SchoolTab />,
+  users:        <UsersTab />,
+  years:        <AcademicYearsTab />,
+  classes:      <ClassesTab />,
+  subjects:     <SubjectsTab />,
+  programme:    <ProgrammeTab />,
+  feeTypes:     <FeeTypesTab />,
+  modules:      <ModulesTab />,
+  appreciation: <AppreciationTab />,
+  email:        <ResendTab />,
+  backup:       <BackupTab />,
+  license:      <LicenseTab />,
+  licenseAdmin: <LicenseAdminSection />,
+  auditlog:     <AuditLogTab />,
+}
+
 export function SettingsPage() {
-  const items = [
-    { key: 'school', label: 'Établissement', children: <SchoolTab /> },
-    { key: 'users', label: 'Utilisateurs', children: <UsersTab /> },
-    { key: 'years', label: 'Années scolaires', children: <AcademicYearsTab /> },
-    { key: 'classes', label: 'Classes & Niveaux', children: <ClassesTab /> },
-    { key: 'subjects', label: 'Matières', children: <SubjectsTab /> },
-    { key: 'programme', label: <span><BookOutlined /> Programme</span>, children: <ProgrammeTab /> },
-    { key: 'feeTypes', label: 'Frais scolaires', children: <FeeTypesTab /> },
-    { key: 'modules', label: <span><AppstoreOutlined /> Modules</span>, children: <ModulesTab /> },
-    { key: 'backup', label: 'Sauvegarde', children: <BackupTab /> },
-    { key: 'license', label: <span><SafetyCertificateOutlined /> Licence</span>, children: <LicenseTab /> },
-    { key: 'auditlog', label: <span><HistoryOutlined /> Journal d'activité</span>, children: <AuditLogTab /> },
-  ]
+  const [active, setActive] = useState('school')
+  const { token } = theme.useToken()
+  const themeMode = useSelector((s: any) => s.ui.theme)
+  const isDark    = themeMode === 'dark'
+
+  const activeItem = SETTINGS_NAV.flatMap(g => g.items).find(i => i.key === active)
 
   return (
     <div>
       <PageHeader title="Paramètres" subtitle="Configuration de l'établissement" />
-      <Card variant="borderless" style={{ borderRadius: 12 }}>
-        <Tabs items={items} defaultActiveKey="school" />
-      </Card>
+
+      <div style={{
+        display: 'flex',
+        background: token.colorBgContainer,
+        borderRadius: 16,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        overflow: 'hidden',
+        minHeight: '72vh',
+      }}>
+        {/* ── Sidebar gauche ─────────────────────────────── */}
+        <div style={{
+          width: 230,
+          flexShrink: 0,
+          borderRight: `1px solid ${token.colorBorderSecondary}`,
+          background: isDark ? 'rgba(0,0,0,0.12)' : '#F8FAFC',
+          padding: '20px 10px 20px',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}>
+          {SETTINGS_NAV.map((group, gi) => (
+            <div key={gi}>
+              {/* Group header */}
+              <div style={{
+                fontSize: 10,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.12em',
+                color: token.colorTextTertiary,
+                padding: gi === 0 ? '0 10px 6px' : '14px 10px 6px',
+                fontFamily: "'Inter', sans-serif",
+              }}>
+                {group.group}
+              </div>
+
+              {/* Nav items */}
+              {group.items.map(item => {
+                const isActive = active === item.key
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setActive(item.key)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      width: '100%',
+                      padding: '8px 10px',
+                      border: 'none',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: 13,
+                      fontWeight: isActive ? 600 : 400,
+                      letterSpacing: '-0.01em',
+                      background: isActive
+                        ? (isDark ? 'rgba(99,102,241,0.18)' : '#EEF2FF')
+                        : 'transparent',
+                      color: isActive
+                        ? (isDark ? '#A5B4FC' : '#3730A3')
+                        : token.colorTextSecondary,
+                      transition: 'all 140ms cubic-bezier(0.16,1,0.3,1)',
+                      marginBottom: 1,
+                      position: 'relative',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        (e.currentTarget as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.05)' : '#F1F0FF'
+                        ;(e.currentTarget as HTMLButtonElement).style.color = token.colorText as string
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                        ;(e.currentTarget as HTMLButtonElement).style.color = token.colorTextSecondary as string
+                      }
+                    }}
+                  >
+                    {/* Active indicator */}
+                    {isActive && (
+                      <span style={{
+                        position: 'absolute',
+                        left: 0, top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 3, height: 18,
+                        background: isDark ? '#818CF8' : '#6366F1',
+                        borderRadius: '0 3px 3px 0',
+                      }} />
+                    )}
+                    {/* Icon */}
+                    <span style={{
+                      fontSize: 14,
+                      color: isActive ? (isDark ? '#818CF8' : '#6366F1') : token.colorTextTertiary,
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      transition: 'color 140ms',
+                    }}>
+                      {item.icon}
+                    </span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* ── Zone de contenu ────────────────────────────── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* En-tête de section */}
+          <div style={{
+            padding: '22px 32px 18px',
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexShrink: 0,
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 8,
+              background: isDark ? 'rgba(99,102,241,0.15)' : '#EEF2FF',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: isDark ? '#818CF8' : '#6366F1', fontSize: 16, flexShrink: 0,
+            }}>
+              {activeItem?.icon}
+            </div>
+            <div>
+              <div style={{
+                fontSize: 15, fontWeight: 700, color: token.colorText,
+                fontFamily: "'Inter', sans-serif", letterSpacing: '-0.02em', lineHeight: 1.2,
+              }}>
+                {activeItem?.label}
+              </div>
+              <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 2 }}>
+                {activeItem?.subtitle}
+              </div>
+            </div>
+          </div>
+
+          {/* Contenu scrollable */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px 32px' }}>
+            {SETTINGS_CONTENT[active]}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

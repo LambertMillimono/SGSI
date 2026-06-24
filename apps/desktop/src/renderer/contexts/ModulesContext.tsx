@@ -9,6 +9,7 @@ export const ALL_MODULES = [
   { key: 'absences',   label: 'Absences & Présences',  description: 'Feuilles d\'appel, statistiques',            required: false },
   { key: 'schedule',   label: 'Emploi du temps',       description: 'Planning des cours, salles',                 required: false },
   { key: 'staff',      label: 'Personnel',             description: 'Enseignants, salaires',                      required: false },
+  { key: 'payroll',   label: 'Paie du personnel',     description: 'Salaires, primes, bulletins de paie',        required: false },
   { key: 'expenses',   label: 'Dépenses',              description: 'Charges, caisse, dépenses internes',         required: false },
   { key: 'reports',    label: 'Rapports',              description: 'Statistiques, classements, exports',         required: false },
   { key: 'library',    label: 'Bibliothèque',          description: 'Gestion des livres et des prêts',            required: false },
@@ -48,9 +49,11 @@ export function ModulesProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { reload() }, [reload])
 
   const isEnabled = useCallback((key: string) => {
-    const mod = ALL_MODULES.find(m => m.key === key)
+    // Check exact key OR parent module (e.g. 'payments/plans' → also checks 'payments')
+    const baseKey = key.split('/')[0]
+    const mod = ALL_MODULES.find(m => m.key === key || m.key === baseKey)
     if (mod?.required) return true
-    return enabledModules.includes(key)
+    return enabledModules.includes(key) || enabledModules.includes(baseKey)
   }, [enabledModules])
 
   return (

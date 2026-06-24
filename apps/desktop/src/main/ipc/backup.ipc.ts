@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog } from 'electron'
 import type { PrismaClient } from '@prisma/client'
 import { BackupService } from '../services/backup.service'
 import { ok, fail } from '@sgsi/shared'
@@ -24,5 +24,19 @@ export function registerBackupIpc(db: PrismaClient, dbPath: string): void {
   ipcMain.handle('backup:list', async () => {
     try { return ok(service.listBackups()) }
     catch (e: any) { return fail('BACKUP_LIST_ERROR', e.message) }
+  })
+
+  // Restore with file dialog (user picks the backup file)
+  ipcMain.handle('backup:restoreDialog', async () => {
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title:      'Choisir un fichier de sauvegarde',
+        filters:    [{ name: 'Sauvegardes SGSI', extensions: ['db', 'zip'] }],
+        properties: ['openFile'],
+      })
+      if (canceled || !filePaths.length) return ok(false)
+      await service.restore(filePaths[0])
+      return ok(true)
+    } catch (e: any) { return fail('RESTORE_ERROR', e.message) }
   })
 }

@@ -69,6 +69,49 @@ export function registerPaymentsIpc(db: PrismaClient): void {
     } catch (e: any) { return fail('ERROR', e.message) }
   })
 
+  // ── Remises et exonérations ──
+  ipcMain.handle('payments:recordDiscount', async (_, data, cashierId: string) => {
+    try { return ok(await service.recordDiscount(data, cashierId)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  ipcMain.handle('payments:listDiscounts', async (_, enrollmentId: string) => {
+    try { return ok(await service.listDiscounts(enrollmentId)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  // ── Prévisions de recettes ──
+  ipcMain.handle('payments:forecast', async (_, year: number) => {
+    try { return ok(await service.forecast(year)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  // ── Payment plans (paiement partiel / échelonné) ──
+  ipcMain.handle('payments:createPlan', async (_, data, cashierId: string) => {
+    try { return ok(await service.createPlan(data, cashierId)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  ipcMain.handle('payments:listPlans', async (_, enrollmentId: string) => {
+    try { return ok(await service.listPlans(enrollmentId)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  ipcMain.handle('payments:listAllPlans', async () => {
+    try { return ok(await service.listAllPlans()) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  ipcMain.handle('payments:payInstallment', async (_, installmentId: string, method: string, cashierId: string) => {
+    try { return ok(await service.payInstallment(installmentId, method, cashierId)) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
+  ipcMain.handle('payments:deletePlan', async (_, planId: string, actorId: string) => {
+    try { await service.deletePlan(planId, actorId); return ok(null) }
+    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+  })
+
   // Rapport par type de frais
   ipcMain.handle('payments:reportByFeeType', async (_, year: number) => {
     try {

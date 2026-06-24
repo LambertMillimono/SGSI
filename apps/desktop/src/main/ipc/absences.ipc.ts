@@ -68,6 +68,60 @@ export function registerAbsencesIpc(db: PrismaClient): void {
     } catch (e: any) { return fail('ERROR', e.message) }
   })
 
+  // Statistiques globales d'absences (dashboard widget)
+  ipcMain.handle('absences:globalStats', async () => {
+    try {
+      const today = new Date()
+      const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0)
+      const todayEnd   = new Date(today); todayEnd.setHours(23, 59, 59, 999)
+
+      const [totalEnrollments, todayAbsences, weekAbsences, totalAbsences] = await Promise.all([
+        db.enrollment.count({ where: { status: 'ACTIVE' } }),
+        db.absence.count({ where: { date: { gte: todayStart, lte: todayEnd }, type: { not: 'LATE' } } }),
+        db.absence.count({
+          where: {
+            date: { gte: new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000) },
+            type: { not: 'LATE' },
+          },
+        }),
+        db.absence.count({ where: { type: { not: 'LATE' } } }),
+      ])
+
+      const todayPct = totalEnrollments > 0
+        ? Math.round(((totalEnrollments - todayAbsences) / totalEnrollments) * 100)
+        : 100
+
+      // Top absentees (students with most absences)
+      const topAbsentees = await db.enrollment.findMany({
+        where: { status: 'ACTIVE' },
+        include: {
+          student: { select: { firstName: true, lastName: true, matricule: true } },
+          class:   { select: { name: true } },
+          _count:  { select: { absences: true } },
+        },
+        orderBy: { absences: { _count: 'desc' } },
+        take: 5,
+      })
+
+      return ok({
+        totalEnrollments,
+        todayAbsences,
+        todayPresence: totalEnrollments - todayAbsences,
+        todayRate: todayPct,
+        weekAbsences,
+        totalAbsences,
+        topAbsentees: topAbsentees
+          .filter(e => e._count.absences > 0)
+          .map(e => ({
+            studentName: `${e.student.lastName} ${e.student.firstName}`,
+            matricule:   e.student.matricule,
+            className:   e.class.name,
+            count:       e._count.absences,
+          })),
+      })
+    } catch (e: any) { return fail('ERROR', e.message) }
+  })
+
   // Statistiques d'absences d'une classe
   ipcMain.handle('absences:stats', async (_, classId: string) => {
     try {

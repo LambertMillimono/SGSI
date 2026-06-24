@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
+import dayjs from 'dayjs'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Card, Tabs, Descriptions, Tag, Button, Table, Typography,
   Spin, Result, Avatar, Select, Statistic, Row, Col, Empty,
-  Modal, Form, Space, Tooltip, Popconfirm, Input,
+  Modal, Form, Space, Tooltip, Popconfirm, Input, Progress, theme,
 } from 'antd'
 import {
   ArrowLeftOutlined, UserOutlined,
   DollarOutlined, ReadOutlined, FileOutlined, CalendarOutlined,
   PlusOutlined, FileDoneOutlined, TeamOutlined, EditOutlined, KeyOutlined,
-  MedicineBoxOutlined,
+  MedicineBoxOutlined, CreditCardOutlined, FilePdfOutlined, WarningOutlined,
+  CheckCircleOutlined, DeleteOutlined, RiseOutlined, TrophyOutlined,
 } from '@ant-design/icons'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartTooltip,
+  ResponsiveContainer, ReferenceLine, Legend,
+} from 'recharts'
 import { ipc } from '../../utils/ipcBridge'
 import { useAuth } from '../../hooks/useAuth'
 import { useAppMessage } from '../../hooks/useAppMessage'
@@ -138,6 +144,21 @@ export function StudentProfilePage() {
       label: <span><MedicineBoxOutlined /> Médical</span>,
       children: <MedicalTab studentId={id} />,
     },
+    {
+      key: 'discipline',
+      label: <span><WarningOutlined /> Discipline</span>,
+      children: <DisciplineTab studentId={id} />,
+    },
+    {
+      key: 'progression',
+      label: <span><RiseOutlined /> Progression</span>,
+      children: <ProgressionTab enrollmentId={currentEnrollment?.id} />,
+    },
+    {
+      key: 'distinctions',
+      label: <span><TrophyOutlined /> Distinctions</span>,
+      children: <DistinctionsTab studentId={id} enrollmentId={currentEnrollment?.id} />,
+    },
   ]
 
   const genderColor = student.gender === 'MALE' ? '#3B82F6' : '#EC4899'
@@ -214,10 +235,26 @@ export function StudentProfilePage() {
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8, paddingTop: 12, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, paddingTop: 12, flexShrink: 0, flexWrap: 'wrap' }}>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/students')}>
               Retour
             </Button>
+            <Tooltip title="Ouvrir la carte scolaire dans une fenêtre imprimable">
+              <Button
+                icon={<CreditCardOutlined />}
+                onClick={() => ipc.students.printCard(id ?? '')}
+              >
+                Carte scolaire
+              </Button>
+            </Tooltip>
+            <Tooltip title="Enregistrer la carte scolaire en PDF">
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={() => ipc.students.saveCardPdf(id ?? '')}
+              >
+                PDF
+              </Button>
+            </Tooltip>
             <Button type="primary" icon={<FileDoneOutlined />} onClick={() => navigate(`/students/${id}/documents`)}>
               Documents officiels
             </Button>
@@ -1154,6 +1191,515 @@ function DocumentsTab({ documents: _initial, studentId }: { documents: any[]; st
         size="small"
         locale={{ emptyText: 'Aucune pièce jointe. Cliquez "Joindre un fichier" pour en ajouter.' }}
       />
+    </div>
+  )
+}
+
+// ─── Onglet Discipline ────────────────────────────────────────────────────────
+
+const DISC_TYPES: Record<string, { label: string; color: string }> = {
+  AVERTISSEMENT:  { label: 'Avertissement',       color: '#F59E0B' },
+  BLAME:          { label: 'Blâme',               color: '#F97316' },
+  CONVOCATION:    { label: 'Convocation parents', color: '#6366F1' },
+  EXCLUSION_TEMP: { label: 'Exclusion temp.',     color: '#DC2626' },
+  EXCLUSION_DEF:  { label: 'Exclusion déf.',      color: '#7F1D1D' },
+  AUTRE:          { label: 'Autre mesure',         color: '#6B7280' },
+}
+
+function DisciplineTab({ studentId }: { studentId?: string }) {
+  const message   = useAppMessage()
+  const { userId } = useAuth()
+  const [records, setRecords]   = useState<any[]>([])
+  const [loading, setLoading]   = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [form] = Form.useForm()
+
+  const load = () => {
+    if (!studentId) return
+    setLoading(true)
+    ipc.discipline.listByStudent(studentId)
+      .then(setRecords).catch(() => {}).finally(() => setLoading(false))
+  }
+  useEffect(() => { load() }, [studentId])
+
+  const handleCreate = async (values: any) => {
+    if (!studentId) return
+    setSaving(true)
+    try {
+      await ipc.discipline.create({ ...values, studentId, date: values.date?.toISOString() }, userId ?? 'system')
+      message.success('Sanction enregistrée')
+      setCreateOpen(false)
+      form.resetFields()
+      load()
+    } catch (e: any) { message.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  const handleResolve = async (id: string) => {
+    try {
+      await ipc.discipline.resolve(id)
+      message.success('Résolu')
+      load()
+    } catch (e: any) { message.error(e.message) }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await ipc.discipline.delete(id)
+      message.success('Supprimé')
+      load()
+    } catch (e: any) { message.error(e.message) }
+  }
+
+  const active = records.filter(r => !r.resolved).length
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <Space>
+          {active > 0 && (
+            <Tag style={{ background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: 'none', borderRadius: 20, fontWeight: 600 }}>
+              {active} sanction(s) en cours
+            </Tag>
+          )}
+          {records.length > 0 && active === 0 && (
+            <Tag style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: 'none', borderRadius: 20, fontWeight: 600 }}>
+              Aucune sanction active
+            </Tag>
+          )}
+        </Space>
+        <Button
+          size="small" icon={<PlusOutlined />}
+          style={{ borderColor: '#F97316', color: '#F97316' }}
+          onClick={() => setCreateOpen(true)}
+        >
+          Nouvelle sanction
+        </Button>
+      </div>
+
+      <Table
+        dataSource={records}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: 'Aucune sanction enregistrée pour cet élève' }}
+        columns={[
+          { title: 'Date', dataIndex: 'date', key: 'date', width: 100,
+            render: (d: string) => <Text style={{ fontSize: 11 }}>{formatDate(d)}</Text> },
+          { title: 'Type', dataIndex: 'type', key: 'type', width: 150,
+            render: (v: string) => {
+              const cfg = DISC_TYPES[v] ?? { label: v, color: '#6B7280' }
+              return <Tag style={{ background: `${cfg.color}15`, color: cfg.color, border: 'none', borderRadius: 20, fontWeight: 600, fontSize: 10 }}>{cfg.label}</Tag>
+            }
+          },
+          { title: 'Description', dataIndex: 'description', key: 'desc',
+            render: (v: string) => <Text style={{ fontSize: 12 }}>{v}</Text> },
+          { title: 'Statut', dataIndex: 'resolved', key: 'status', width: 90,
+            render: (v: boolean) => v
+              ? <Tag style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: 'none', borderRadius: 20, fontSize: 10, fontWeight: 600 }}>Résolu</Tag>
+              : <Tag style={{ background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: 'none', borderRadius: 20, fontSize: 10, fontWeight: 600 }}>En cours</Tag>
+          },
+          { title: '', key: 'actions', width: 80,
+            render: (_: any, r: any) => (
+              <Space size={4}>
+                {!r.resolved && (
+                  <Tooltip title="Résoudre">
+                    <Button size="small" icon={<CheckCircleOutlined />} style={{ color: '#059669', borderColor: '#059669' }}
+                      onClick={() => handleResolve(r.id)} />
+                  </Tooltip>
+                )}
+                <Popconfirm title="Supprimer ?" onConfirm={() => handleDelete(r.id)} okType="danger">
+                  <Button size="small" danger icon={<DeleteOutlined />} />
+                </Popconfirm>
+              </Space>
+            )
+          },
+        ]}
+      />
+
+      <Modal
+        title="Nouvelle sanction disciplinaire"
+        open={createOpen}
+        onCancel={() => { setCreateOpen(false); form.resetFields() }}
+        footer={null}
+        width={480}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" onFinish={handleCreate} requiredMark={false}
+          initialValues={{ date: dayjs() }}>
+          <Form.Item name="type" label="Type de mesure" rules={[{ required: true }]}>
+            <Select>
+              {Object.entries(DISC_TYPES).map(([k, v]) => (
+                <Select.Option key={k} value={k}>
+                  <span style={{ color: v.color, fontWeight: 600 }}>{v.label}</span>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item name="description" label="Description des faits" rules={[{ required: true }]}>
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="sanction" label="Sanction appliquée">
+            <Input />
+          </Form.Item>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Button onClick={() => { setCreateOpen(false); form.resetFields() }}>Annuler</Button>
+            <Button type="primary" htmlType="submit" loading={saving}
+              style={{ background: '#F97316', borderColor: '#F97316' }}>
+              Enregistrer
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+    </div>
+  )
+}
+
+// ─── Onglet Progression des notes ─────────────────────────────────────────────
+
+function ProgressionTab({ enrollmentId }: { enrollmentId?: string }) {
+  const { token } = theme.useToken()
+  const [loading, setLoading] = useState(true)
+  const [periods, setPeriods] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!enrollmentId) { setLoading(false); return }
+    setLoading(true)
+    Promise.all([
+      ipc.grades.getAverages(enrollmentId, 1).catch(() => null),
+      ipc.grades.getAverages(enrollmentId, 2).catch(() => null),
+      ipc.grades.getAverages(enrollmentId, 3).catch(() => null),
+    ]).then(([p1, p2, p3]) => {
+      setPeriods([p1, p2, p3])
+    }).finally(() => setLoading(false))
+  }, [enrollmentId])
+
+  if (!enrollmentId) return (
+    <Empty description="L'élève n'est pas inscrit dans une classe" />
+  )
+  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}><Spin /></div>
+
+  const PERIOD_LABELS = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3']
+
+  // General average chart data
+  const avgChartData = periods.map((p, i) => ({
+    name: PERIOD_LABELS[i],
+    moyenne: p?.generalAverage ?? null,
+    rang: p?.rank ?? null,
+  }))
+
+  // Get all subjects across periods
+  const subjectMap: Record<string, { name: string; coef: number; p1: number | null; p2: number | null; p3: number | null }> = {}
+  periods.forEach((p, pi) => {
+    if (!p?.subjectAverages) return
+    p.subjectAverages.forEach((s: any) => {
+      if (!subjectMap[s.subjectId]) {
+        subjectMap[s.subjectId] = { name: s.subjectName, coef: s.coefficient, p1: null, p2: null, p3: null }
+      }
+      const key = `p${pi + 1}` as 'p1' | 'p2' | 'p3'
+      subjectMap[s.subjectId][key] = s.average
+    })
+  })
+  const subjects = Object.values(subjectMap)
+
+  const avgColor = (avg: number | null) => {
+    if (avg === null) return token.colorTextTertiary
+    if (avg >= 16) return '#059669'
+    if (avg >= 12) return '#6366F1'
+    if (avg >= 10) return '#F59E0B'
+    return '#DC2626'
+  }
+
+  const hasData = periods.some(p => p?.generalAverage != null)
+
+  if (!hasData) return (
+    <Empty description="Aucune note saisie pour cet élève" style={{ padding: 40 }} />
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Moyennes générales par période */}
+      <div>
+        <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 16 }}>
+          Évolution de la moyenne générale
+        </Text>
+        <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+          {periods.map((p, i) => (
+            <Col key={i} span={8}>
+              <div style={{
+                padding: '16px 20px', borderRadius: 12,
+                background: p?.generalAverage != null ? `${avgColor(p.generalAverage)}10` : token.colorBgContainer,
+                border: `1px solid ${p?.generalAverage != null ? `${avgColor(p.generalAverage)}25` : token.colorBorderSecondary}`,
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: token.colorTextTertiary, marginBottom: 8 }}>
+                  {PERIOD_LABELS[i]}
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: avgColor(p?.generalAverage ?? null), lineHeight: 1 }}>
+                  {p?.generalAverage != null ? p.generalAverage.toFixed(2) : '—'}
+                </div>
+                {p?.rank && (
+                  <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 6 }}>
+                    Rang {p.rank} / {p.totalStudents}
+                  </div>
+                )}
+              </div>
+            </Col>
+          ))}
+        </Row>
+
+        {/* Line chart */}
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={avgChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false}
+              stroke={token.colorBorderSecondary as string} />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 20]} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+            <ReferenceLine y={10} stroke="#F59E0B" strokeDasharray="4 4" label={{ value: '10', fontSize: 10 }} />
+            <ReferenceLine y={16} stroke="#059669" strokeDasharray="4 4" label={{ value: '16', fontSize: 10 }} />
+            <RechartTooltip
+              formatter={(v: any) => [`${v}/20`, 'Moyenne']}
+              contentStyle={{ borderRadius: 10, fontSize: 12, background: token.colorBgElevated as string, border: `1px solid ${token.colorBorderSecondary}` }}
+            />
+            <Line
+              type="monotone" dataKey="moyenne"
+              stroke="#6366F1" strokeWidth={3}
+              dot={{ r: 6, fill: '#6366F1', strokeWidth: 2, stroke: '#fff' }}
+              activeDot={{ r: 8 }}
+              connectNulls={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Progression par matière */}
+      {subjects.length > 0 && (
+        <div>
+          <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 12 }}>
+            Progression par matière
+          </Text>
+          <Table
+            dataSource={subjects}
+            rowKey="name"
+            size="small"
+            pagination={false}
+            columns={[
+              { title: 'Matière', dataIndex: 'name', key: 'name',
+                render: (v: string, r: any) => (
+                  <div>
+                    <Text strong style={{ fontSize: 13 }}>{v}</Text>
+                    <Text style={{ fontSize: 11, color: token.colorTextTertiary, marginLeft: 6 }}>
+                      coef. {r.coef}
+                    </Text>
+                  </div>
+                )
+              },
+              ...['p1','p2','p3'].map((pk, i) => ({
+                title: PERIOD_LABELS[i],
+                dataIndex: pk,
+                key: pk,
+                width: 90,
+                render: (v: number | null) => v != null ? (
+                  <Text strong style={{ color: avgColor(v), fontVariantNumeric: 'tabular-nums' }}>
+                    {v.toFixed(2)}
+                  </Text>
+                ) : <Text type="secondary">—</Text>,
+              })),
+              {
+                title: 'Tendance',
+                key: 'trend',
+                width: 100,
+                render: (_: any, r: any) => {
+                  const vals = [r.p1, r.p2, r.p3].filter((v): v is number => v != null)
+                  if (vals.length < 2) return null
+                  const diff = vals[vals.length - 1] - vals[0]
+                  return (
+                    <span style={{
+                      color: diff > 0 ? '#059669' : diff < 0 ? '#DC2626' : token.colorTextTertiary,
+                      fontWeight: 700, fontSize: 12,
+                    }}>
+                      {diff > 0 ? '↑ +' : diff < 0 ? '↓ ' : '→ '}{Math.abs(diff).toFixed(2)}
+                    </span>
+                  )
+                },
+              },
+            ]}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Onglet Distinctions & Récompenses ────────────────────────────────────────
+
+function DistinctionsTab({ studentId, enrollmentId }: { studentId?: string; enrollmentId?: string }) {
+  const { token } = theme.useToken()
+  const { userId } = useAuth()
+  const message = useAppMessage()
+  const [loading, setLoading] = useState(true)
+  const [rankData, setRankData] = useState<any[]>([])
+  const [distinctions, setDistinctions] = useState<any[]>([])
+  const [createOpen, setCreateOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form] = Form.useForm()
+
+  // Auto-generate distinctions from grade data
+  useEffect(() => {
+    if (!enrollmentId) { setLoading(false); return }
+    Promise.all([
+      ipc.grades.getAverages(enrollmentId, 1).catch(() => null),
+      ipc.grades.getAverages(enrollmentId, 2).catch(() => null),
+      ipc.grades.getAverages(enrollmentId, 3).catch(() => null),
+    ]).then(([p1, p2, p3]) => {
+      const auto: any[] = []
+      const PERIODS = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3']
+      ;[p1, p2, p3].forEach((p, i) => {
+        if (!p) return
+        if (p.rank === 1) auto.push({ type: 'auto', icon: '🥇', label: `1er de la classe`, period: PERIODS[i], color: '#F59E0B' })
+        else if (p.rank === 2) auto.push({ type: 'auto', icon: '🥈', label: `2ème de la classe`, period: PERIODS[i], color: '#9CA3AF' })
+        else if (p.rank === 3) auto.push({ type: 'auto', icon: '🥉', label: `3ème de la classe`, period: PERIODS[i], color: '#CD7C2F' })
+        if (p.generalAverage >= 18) auto.push({ type: 'auto', icon: '⭐', label: 'Mention Excellent', period: PERIODS[i], color: '#059669' })
+        else if (p.generalAverage >= 16) auto.push({ type: 'auto', icon: '✨', label: 'Mention Très Bien', period: PERIODS[i], color: '#10B981' })
+        else if (p.generalAverage >= 14) auto.push({ type: 'auto', icon: '👍', label: 'Mention Bien', period: PERIODS[i], color: '#6366F1' })
+      })
+      setRankData(auto)
+    }).finally(() => {
+      // Load manual distinctions from discipline IPC reused as distinctions
+      ipc.discipline.listByStudent(studentId ?? '').then(recs => {
+        // Filter for RECOMPENSE type if exists (otherwise show empty)
+        const dists = recs.filter((r: any) => r.type === 'RECOMPENSE')
+        setDistinctions(dists)
+      }).catch(() => {})
+      setLoading(false)
+    })
+  }, [enrollmentId, studentId])
+
+  const handleAdd = async (values: any) => {
+    if (!studentId) return
+    setSaving(true)
+    try {
+      await ipc.discipline.create({
+        studentId,
+        type: 'RECOMPENSE',
+        description: values.description,
+        sanction: values.categorie,
+        note: values.note,
+        date: values.date?.toISOString(),
+      }, userId ?? 'system')
+      message.success('Distinction enregistrée')
+      setCreateOpen(false)
+      form.resetFields()
+      // Reload
+      const recs = await ipc.discipline.listByStudent(studentId)
+      setDistinctions(recs.filter((r: any) => r.type === 'RECOMPENSE'))
+    } catch (e: any) { message.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}><Spin /></div>
+
+  return (
+    <div>
+      {/* Auto-generated distinctions */}
+      {rankData.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 12 }}>
+            Distinctions académiques (générées automatiquement)
+          </Text>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {rankData.map((d, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 16px', borderRadius: 12,
+                background: `${d.color}10`,
+                border: `1px solid ${d.color}25`,
+              }}>
+                <span style={{ fontSize: 20 }}>{d.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: d.color }}>{d.label}</div>
+                  <div style={{ fontSize: 11, color: token.colorTextTertiary }}>{d.period}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rankData.length === 0 && distinctions.length === 0 && (
+        <Empty
+          description="Aucune distinction pour cet élève"
+          style={{ padding: 32 }}
+        />
+      )}
+
+      {/* Manuel distinctions */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text strong style={{ fontSize: 14 }}>Distinctions manuelles</Text>
+        <Button size="small" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+          Ajouter
+        </Button>
+      </div>
+
+      {distinctions.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {distinctions.map((d, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 16px', borderRadius: 10,
+              background: 'rgba(245,158,11,0.06)',
+              border: '1px solid rgba(245,158,11,0.2)',
+            }}>
+              <span style={{ fontSize: 22 }}>🏆</span>
+              <div style={{ flex: 1 }}>
+                <Text strong style={{ fontSize: 13 }}>{d.description}</Text>
+                {d.sanction && <Text style={{ display: 'block', fontSize: 11, color: token.colorTextTertiary }}>{d.sanction}</Text>}
+              </div>
+              <Text style={{ fontSize: 11, color: token.colorTextTertiary }}>{formatDate(d.date)}</Text>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Text type="secondary" style={{ fontSize: 12 }}>Aucune distinction manuelle enregistrée.</Text>
+      )}
+
+      {/* Modal */}
+      <Modal
+        title="Ajouter une distinction"
+        open={createOpen}
+        onCancel={() => { setCreateOpen(false); form.resetFields() }}
+        footer={null}
+        width={420}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" onFinish={handleAdd} requiredMark={false}
+          initialValues={{ date: dayjs() }}>
+          <Form.Item name="description" label="Titre de la distinction" rules={[{ required: true }]}>
+            <Input placeholder="Ex: Prix d'excellence, Félicitations du jury…" />
+          </Form.Item>
+          <Form.Item name="categorie" label="Catégorie">
+            <Select placeholder="Sélectionner…">
+              <Option value="académique">Excellence académique</Option>
+              <Option value="sportive">Mérite sportif</Option>
+              <Option value="artistique">Mérite artistique</Option>
+              <Option value="comportement">Comportement exemplaire</Option>
+              <Option value="autre">Autre</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="note" label="Description (optionnel)">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Button onClick={() => { setCreateOpen(false); form.resetFields() }}>Annuler</Button>
+            <Button type="primary" htmlType="submit" loading={saving}
+              style={{ background: '#F59E0B', borderColor: '#F59E0B' }}>
+              Enregistrer
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   )
 }

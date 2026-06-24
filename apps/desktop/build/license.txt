@@ -1,8 +1,13 @@
-SGSI — Système de Gestion Scolaire Intégré
-Copyright © 2024 SchoolManager Pro
-Tous droits réservés.
+SGSI SchoolManager Pro — Licence d'utilisation
+==============================================
+Copyright © 2024-2026 Lambert Millimono. Tous droits réservés.
 
-Ce logiciel est fourni sous licence commerciale.
-Toute reproduction ou redistribution est interdite sans autorisation écrite.
+Ce logiciel est une oeuvre protégée par les lois sur le droit d'auteur.
+Toute reproduction, distribution ou utilisation non autorisée est interdite.
 
-Pour toute question, contactez l'administration de votre établissement.
+Ce logiciel est fourni sous licence commerciale annuelle.
+Chaque installation nécessite une clé de licence valide obtenue auprès du distributeur.
+
+Contact : lambertmillimono8@gmail.com
+
+En installant ce logiciel, vous acceptez les termes de cette licence.

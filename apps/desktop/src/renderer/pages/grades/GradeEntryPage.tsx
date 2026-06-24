@@ -6,6 +6,7 @@ import {
 import {
   SaveOutlined, FileTextOutlined, CheckCircleOutlined, ReloadOutlined,
   ReadOutlined, BookOutlined, UploadOutlined, CheckOutlined, CloseOutlined,
+  DownloadOutlined, FileExcelOutlined,
 } from '@ant-design/icons'
 import { ipc } from '../../utils/ipcBridge'
 import { useAuth } from '../../hooks/useAuth'
@@ -76,6 +77,8 @@ export function GradeEntryPage() {
   const [csvModalOpen, setCsvModalOpen] = useState(false)
   const [csvRows, setCsvRows] = useState<Array<{ lastName: string; firstName: string; matricule: string; value: number | null; matchedEnrollmentId: string | null; matched: boolean }>>([])
   const [csvImporting, setCsvImporting] = useState(false)
+  const [xlsxImporting, setXlsxImporting] = useState(false)
+  const [xlsxResult, setXlsxResult] = useState<any>(null)
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   useEffect(() => { ipc.classes.list().then(setClasses).catch(() => {}) }, [])
@@ -205,6 +208,31 @@ export function GradeEntryPage() {
       loadGrades()
     } else {
       message.warning('Aucune note importée')
+    }
+  }
+
+  /* ── Import Excel multi-colonnes (DS1 / DS2 / Composition) ── */
+  const handleImportExcel = async () => {
+    if (!selectedClass || !selectedSubject) {
+      message.warning('Sélectionnez une classe et une matière avant d\'importer')
+      return
+    }
+    if (!userId) return
+    setXlsxImporting(true)
+    try {
+      const result = await ipc.grades.importExcel(selectedClass, selectedSubject, period, userId)
+      if (!result) return // user cancelled
+      setXlsxResult(result)
+      if (result.imported > 0) {
+        message.success(`${result.imported} élève(s) importé(s) avec succès`)
+        loadGrades()
+      } else {
+        message.warning('Aucune note importée. Vérifiez le fichier.')
+      }
+    } catch (e: any) {
+      message.error(e.message ?? 'Erreur import Excel')
+    } finally {
+      setXlsxImporting(false)
     }
   }
 
@@ -472,11 +500,10 @@ export function GradeEntryPage() {
           </Col>
           {/* Actions */}
           <Col>
-            <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 1px 6px rgba(0,0,0,0.07)', height: '100%' }} styles={{ body: { padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' } }}>
+            <Card variant="borderless" style={{ borderRadius: 12, boxShadow: '0 1px 6px rgba(0,0,0,0.07)', height: '100%' }} styles={{ body: { padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 7, justifyContent: 'center' } }}>
               <Tooltip title={canGenerate ? `Générer les bulletins du ${periodLabel}` : 'Saisissez au moins une note'}>
                 <Button
                   type="primary"
-                  size="large"
                   icon={<FileTextOutlined />}
                   loading={generating}
                   onClick={handleGenerateBulletins}
@@ -486,10 +513,30 @@ export function GradeEntryPage() {
                   Générer bulletins
                 </Button>
               </Tooltip>
-              <Button icon={<UploadOutlined />} onClick={handleOpenCsvImport} style={{ borderRadius: 8 }}>
+              <Tooltip title="Importer DS1 + DS2 + Composition depuis un fichier Excel (toutes les évals en même temps)">
+                <Button
+                  icon={<FileExcelOutlined />}
+                  loading={xlsxImporting}
+                  onClick={handleImportExcel}
+                  disabled={!selectedClass || !selectedSubject}
+                  style={{ borderRadius: 8, color: '#059669', borderColor: '#059669' }}
+                >
+                  Importer Excel
+                </Button>
+              </Tooltip>
+              <Tooltip title="Télécharger le modèle Excel à remplir">
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={() => ipc.grades.downloadTemplate()}
+                  style={{ borderRadius: 8 }}
+                >
+                  Modèle Excel
+                </Button>
+              </Tooltip>
+              <Button icon={<UploadOutlined />} onClick={handleOpenCsvImport} style={{ borderRadius: 8 }} size="small">
                 Importer CSV
               </Button>
-              <Button icon={<ReloadOutlined />} onClick={loadGrades} style={{ borderRadius: 8 }}>
+              <Button icon={<ReloadOutlined />} onClick={loadGrades} style={{ borderRadius: 8 }} size="small">
                 Actualiser
               </Button>
             </Card>
@@ -541,6 +588,53 @@ export function GradeEntryPage() {
         .grade-row-error td { background: #fff5f5 !important; }
         .ant-table-row:hover td { background: #f8faff !important; }
       `}</style>
+
+      {/* Modale résultat import Excel multi-colonnes */}
+      <Modal
+        title={<span><FileExcelOutlined style={{ marginRight: 8, color: '#059669' }} />Résultat import Excel — DS1 / DS2 / Composition</span>}
+        open={!!xlsxResult}
+        onCancel={() => setXlsxResult(null)}
+        footer={<Button type="primary" onClick={() => setXlsxResult(null)}>Fermer</Button>}
+        width={620}
+      >
+        {xlsxResult && (
+          <div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+              {[
+                { label: 'Importés',      value: xlsxResult.imported, color: '#059669' },
+                { label: 'Introuvables',  value: xlsxResult.notFound, color: '#D97706' },
+                { label: 'Erreurs',       value: xlsxResult.errors,   color: '#DC2626' },
+                { label: 'Total fichier', value: xlsxResult.total,    color: '#6366F1' },
+              ].map(s => (
+                <div key={s.label} style={{ flex: 1, textAlign: 'center', padding: '12px 8px', background: `${s.color}10`, borderRadius: 10, border: `1px solid ${s.color}25` }}>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <Table
+              size="small"
+              dataSource={xlsxResult.report}
+              rowKey={(r: any, i: number) => `${r.matricule}-${i}`}
+              pagination={{ pageSize: 10 }}
+              columns={[
+                { title: 'Matricule', dataIndex: 'matricule', key: 'mat', width: 160,
+                  render: (v: string) => <Text code style={{ fontSize: 11 }}>{v}</Text> },
+                { title: 'Nom', dataIndex: 'name', key: 'name' },
+                { title: 'DS1',  dataIndex: 'ds1',  key: 'ds1',  width: 55, render: (v: any) => v ?? <Text type="secondary">—</Text> },
+                { title: 'DS2',  dataIndex: 'ds2',  key: 'ds2',  width: 55, render: (v: any) => v ?? <Text type="secondary">—</Text> },
+                { title: 'Compo',dataIndex: 'composition', key: 'comp', width: 65, render: (v: any) => v ?? <Text type="secondary">—</Text> },
+                { title: 'Statut', dataIndex: 'status', key: 'st', width: 130,
+                  render: (v: string) => (
+                    <Tag color={v === 'Importé' ? 'success' : v === 'Élève introuvable' ? 'warning' : 'error'} style={{ fontSize: 10 }}>
+                      {v}
+                    </Tag>
+                  ) },
+              ]}
+            />
+          </div>
+        )}
+      </Modal>
 
       {/* Modale prévisualisation import CSV */}
       <Modal

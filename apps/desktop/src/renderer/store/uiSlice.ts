@@ -5,9 +5,12 @@ interface UiState {
   theme: 'light' | 'dark'
 }
 
+// Apply dark mode immediately so no flash of light theme on startup
+document.documentElement.classList.add('dark')
+
 const initialState: UiState = {
   sidebarCollapsed: false,
-  theme: 'light',
+  theme: 'dark',
 }
 
 export const uiSlice = createSlice({

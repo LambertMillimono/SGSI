@@ -24,6 +24,13 @@ function clearStorage(key: string) {
   try { localStorage.removeItem(key) } catch { /* non-fatal */ }
 }
 
+// Load saved UI prefs — default theme is 'dark' if never saved
+const savedUi = loadFromStorage<{ theme: 'light' | 'dark'; sidebarCollapsed: boolean }>(UI_STORAGE_KEY)
+const resolvedTheme: 'light' | 'dark' = savedUi?.theme ?? 'dark'
+
+// Apply theme class immediately before React renders (prevents flash)
+document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
+
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -31,7 +38,10 @@ export const store = configureStore({
   },
   preloadedState: {
     auth: loadFromStorage(AUTH_STORAGE_KEY),
-    ui: loadFromStorage(UI_STORAGE_KEY),
+    ui: {
+      sidebarCollapsed: savedUi?.sidebarCollapsed ?? false,
+      theme: resolvedTheme,
+    },
   } as any,
 })
 

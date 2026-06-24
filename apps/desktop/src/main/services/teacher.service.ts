@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { sendEmail, buildTeacherWelcomeEmail, loadBrevoConfig } from './email.service'
 
 export class TeacherService {
   constructor(private db: PrismaClient) {}
@@ -97,7 +98,30 @@ export class TeacherService {
     })
 
     await this.audit(actorId, 'CREATE', 'teacher', result.id)
-    return result
+
+    // ── Envoyer l'email de bienvenue via Resend si configuré ──
+    const tempPassword = data.password ?? 'Enseignant@1234'
+    if (data.email && loadBrevoConfig()?.apiKey) {
+      try {
+        const html = buildTeacherWelcomeEmail({
+          teacherName: `${data.firstName} ${data.lastName}`,
+          username:    data.username,
+          password:    tempPassword,
+          schoolName:  school?.name  ?? 'Notre établissement',
+          schoolPhone: school?.phone ?? undefined,
+        })
+        await sendEmail({
+          to:      data.email,
+          subject: `Vos identifiants SGSI — ${school?.name ?? 'SchoolManager Pro'}`,
+          html,
+        })
+      } catch (emailErr: any) {
+        // Email failure is non-fatal — teacher account is created
+        console.warn('[SGSI] Email non envoyé:', emailErr.message)
+      }
+    }
+
+    return { ...result, emailSent: !!(data.email && loadBrevoConfig()?.apiKey) }
   }
 
   async update(id: string, data: {

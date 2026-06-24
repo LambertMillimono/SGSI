@@ -1,6 +1,10 @@
 import { PrismaClient } from '@prisma/client'
-import { ServiceError, getAppreciation } from '@sgsi/shared'
+import { ServiceError } from '@sgsi/shared'
+import { getConfiguredAppreciation } from '../ipc/appreciation.ipc'
 import { GradeService } from './grade.service'
+
+// Use configurable appreciation (falls back to defaults if no config file)
+const getAppreciation = (avg: number) => getConfiguredAppreciation(avg)
 
 export class BulletinService {
   private gradeService: GradeService

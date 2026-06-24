@@ -34,9 +34,17 @@ export async function startExpressServer(db: PrismaClient): Promise<void> {
 
   // Protected routes — require valid JWT
   const auth = authMiddleware(jwtSecret)
-  app.use('/api/student', auth, studentRoutes(db))
-  app.use('/api/teacher', auth, teacherRoutes(db))
+  app.use('/api/student',  auth, studentRoutes(db))
+  app.use('/api/teacher',  auth, teacherRoutes(db))
   app.use('/api/payments', auth, paymentRoutes(db))
+
+  // Status with school info
+  app.get('/api/info', auth, async (_, res) => {
+    try {
+      const school = await db.school.findFirst()
+      res.json({ school: { name: school?.name, city: school?.city } })
+    } catch { res.json({ school: null }) }
+  })
 
   // 404 handler
   app.use((_, res) => {

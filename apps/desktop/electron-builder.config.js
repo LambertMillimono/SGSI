@@ -1,41 +1,51 @@
-const { defineConfig } = require('electron-builder')
+module.exports = {
+  appId:           'com.sgsi.gestionscolaire',
+  productName:     'SGSI Gestion Scolaire Pro',
+  copyright:       'Copyright © 2024-2026 Lambert Millimono',
+  electronVersion: '31.7.7',
 
-module.exports = defineConfig({
-  appId: 'com.sgsi.schoolmanager',
-  productName: 'SGSI',
-  copyright: 'Copyright © 2024 SchoolManager Pro',
   directories: {
-    output: 'dist',
+    output:         'dist',
     buildResources: 'build',
   },
+
   files: [
     'out/**/*',
     'node_modules/**/*',
     'package.json',
-  ],
-  extraResources: [
     {
-      from: '../../node_modules/.prisma',
-      to: 'prisma',
+      from:   '../../node_modules/.prisma',
+      to:     'node_modules/.prisma',
       filter: ['**/*'],
     },
   ],
+
+  asarUnpack: [
+    'node_modules/.prisma/client/query_engine*',
+    'node_modules/.prisma/client/libquery_engine*',
+    'node_modules/@prisma/engines/**/*',
+  ],
+
   win: {
+    icon: 'build/icon.ico',
     target: [
       { target: 'nsis', arch: ['x64'] },
     ],
-    artifactName: 'SGSI-Setup-${version}.${ext}',
+    artifactName: 'SGSI-GestionScolaire-Setup-${version}.${ext}',
+    requestedExecutionLevel: 'requireAdministrator',
   },
+
   nsis: {
-    oneClick: false,
+    oneClick:                           false,
     allowToChangeInstallationDirectory: true,
-    allowElevation: true,
-    createDesktopShortcut: true,
-    createStartMenuShortcut: true,
-    shortcutName: 'SGSI',
-    displayLanguageSelector: false,
-    language: '1036',
-    license: 'build/license.txt',
+    allowElevation:                     true,
+    createDesktopShortcut:              true,
+    createStartMenuShortcut:            true,
+    shortcutName:                       'SGSI Gestion Scolaire',
+    displayLanguageSelector:            false,
+    language:                           '1036',
+    license:                            'build/license.txt',
   },
+
   publish: null,
-})
+}

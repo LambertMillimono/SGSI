@@ -19,68 +19,177 @@ function ThemedApp() {
       theme={{
         algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         token: {
-          colorPrimary: '#1E40AF',
-          colorSuccess: '#16A34A',
-          colorWarning: '#D97706',
+          /* === NEW BRAND: Indigo #6366F1 (NOT blue) === */
+          colorPrimary: '#6366F1',
+          colorSuccess: '#059669',
+          colorWarning: '#F59E0B',
           colorError:   '#DC2626',
-          borderRadius: 8,
-          fontFamily: "'Inter', 'Segoe UI', sans-serif",
-          // Dark mode: harmonise les surfaces avec notre palette navy
-          ...(isDark && {
-            colorBgLayout:          '#0F172A',
-            colorBgContainer:       '#1E293B',
-            colorBgElevated:        '#273549',
-            colorBgSpotlight:       '#334155',
-            colorBorderSecondary:   '#334155',
-            colorBorder:            '#475569',
-            colorText:              '#F1F5F9',
-            colorTextSecondary:     '#94A3B8',
-            colorTextTertiary:      '#64748B',
-            colorTextQuaternary:    '#475569',
+          colorInfo:    '#6366F1',
+
+          /* === TYPOGRAPHY === */
+          fontFamily:       "'Inter', -apple-system, system-ui, sans-serif",
+          fontSize:         13,
+          fontWeightStrong: 600,
+          lineHeight:       1.6,
+
+          /* === SHAPE === */
+          borderRadius:   8,
+          borderRadiusLG: 12,
+          borderRadiusSM: 6,
+          borderRadiusXS: 4,
+
+          /* === CONTROL SIZES === */
+          controlHeight:   36,
+          controlHeightSM: 30,
+          controlHeightLG: 44,
+
+          /* === MOTION === */
+          motionDurationFast: '120ms',
+          motionDurationMid:  '180ms',
+          motionDurationSlow: '280ms',
+          motionEaseInOut:    'cubic-bezier(0.16, 1, 0.3, 1)',
+
+          /* === SURFACES — Warm Indigo Dark (NOT cold blue-black) === */
+          ...(isDark ? {
+            colorBgLayout:        '#0F0F1A',  /* Deep indigo dark */
+            colorBgContainer:     '#1A1A2E',  /* Surface indigo */
+            colorBgElevated:      '#252540',  /* Elevated */
+            colorBgSpotlight:     '#2E2E55',
+            colorBorderSecondary: 'rgba(99,102,241,0.08)',
+            colorBorder:          'rgba(99,102,241,0.15)',
+            colorText:            '#F0EFFF',  /* Warm white with indigo tint */
+            colorTextSecondary:   '#A0A0C0',
+            colorTextTertiary:    '#6B6B8A',
+            colorTextQuaternary:  '#3A3A58',
+          } : {
+            colorBgLayout:        '#FAFAFE',  /* Subtle indigo-white */
+            colorBgContainer:     '#FFFFFF',
+            colorBgElevated:      '#FFFFFF',
+            colorBgSpotlight:     '#F4F4F5',
+            colorBorderSecondary: '#E4E4E7',
+            colorBorder:          '#E4E4E7',
+            colorText:            '#18181B',  /* Zinc 900 */
+            colorTextSecondary:   '#52525B',  /* Zinc 600 */
+            colorTextTertiary:    '#A1A1AA',  /* Zinc 400 */
+            colorTextQuaternary:  '#D4D4D8',  /* Zinc 300 */
           }),
         },
         components: {
           Layout: {
-            bodyBg:          isDark ? '#0F172A' : '#F1F5F9',
-            siderBg:         '#0F172A',
-            headerBg:        isDark ? '#1E293B' : '#ffffff',
-            headerPadding:   '0 20px',
-            headerHeight:    56,
+            bodyBg:        isDark ? '#0F0F1A' : '#FAFAFE',
+            siderBg:       isDark ? '#1A1A2E' : '#FFFFFF',
+            headerBg:      isDark ? '#1A1A2E' : '#FFFFFF',
+            headerPadding: '0 24px',
+            headerHeight:  60,
           },
           Card: {
-            colorBgContainer: isDark ? '#1E293B' : '#ffffff',
-            borderRadiusLG: 12,
+            colorBgContainer:     isDark ? '#1A1A2E' : '#FFFFFF',
+            colorBorderSecondary: isDark ? 'rgba(99,102,241,0.15)' : '#E4E4E7',
+            borderRadiusLG: 16,
+            paddingLG: 20,
           },
           Table: {
-            colorBgContainer: isDark ? '#1E293B' : '#ffffff',
-            headerBg:         isDark ? '#273549' : '#F8FAFC',
-            rowHoverBg:       isDark ? '#2D3F55' : '#EFF6FF',
-            headerColor:      isDark ? '#94A3B8' : '#6B7280',
-            borderColor:      isDark ? '#334155' : '#F3F4F6',
+            colorBgContainer: isDark ? '#1A1A2E' : '#FFFFFF',
+            headerBg:         isDark ? '#1A1A2E' : '#F4F4F5',
+            rowHoverBg:       isDark ? 'rgba(99,102,241,0.08)' : '#EEF2FF',
+            headerColor:      isDark ? '#6B6B8A' : '#A1A1AA',
+            borderColor:      isDark ? 'rgba(99,102,241,0.08)' : '#F4F4F5',
+            cellFontSize:     13,
           },
           Menu: {
-            darkItemBg:         '#0F172A',
-            darkSubMenuItemBg:  '#0F172A',
-            darkItemSelectedBg: 'rgba(255,255,255,0.12)',
+            darkItemBg:         '#1A1A2E',
+            darkSubMenuItemBg:  '#1A1A2E',
+            darkItemSelectedBg: 'rgba(99,102,241,0.15)',
+            darkItemHoverBg:    'rgba(99,102,241,0.06)',
           },
           Button: {
-            primaryShadow: 'none',
-            defaultShadow: 'none',
-            dangerShadow:  'none',
+            primaryShadow:    'none',
+            defaultShadow:    'none',
+            dangerShadow:     'none',
+            fontWeight:       500,
+            borderRadius:     9999,   /* PILL */
+            controlHeight:    36,
+            controlHeightSM:  30,
+            controlHeightLG:  44,
           },
           Input: {
-            activeShadow: '0 0 0 3px rgba(30,64,175,0.1)',
+            colorBgContainer:  isDark ? '#252540' : '#FFFFFF',
+            colorBorder:       isDark ? 'rgba(99,102,241,0.2)' : '#E4E4E7',
+            activeBorderColor: '#6366F1',
+            hoverBorderColor:  '#818CF8',
+            activeShadow:      '0 0 0 3px rgba(99,102,241,0.2)',
+            borderRadius:      8,
           },
-          Tabs: {
-            inkBarColor:       '#1E40AF',
-            itemActiveColor:   '#1E40AF',
-            itemSelectedColor: '#1E40AF',
+          InputNumber: {
+            colorBgContainer: isDark ? '#252540' : '#FFFFFF',
+            colorBorder:      isDark ? 'rgba(99,102,241,0.2)' : '#E4E4E7',
+            activeBorderColor: '#6366F1',
+            hoverBorderColor:  '#818CF8',
+            activeShadow:      '0 0 0 3px rgba(99,102,241,0.2)',
+            borderRadius:      8,
           },
           Select: {
-            optionSelectedBg: isDark ? '#2D3F55' : '#EFF6FF',
+            colorBgContainer:    isDark ? '#252540' : '#FFFFFF',
+            colorBorder:         isDark ? 'rgba(99,102,241,0.2)' : '#E4E4E7',
+            optionSelectedBg:    isDark ? 'rgba(99,102,241,0.15)' : '#EEF2FF',
+            optionSelectedColor: isDark ? '#A5B4FC' : '#4338CA',
+            borderRadius:        8,
+          },
+          DatePicker: {
+            colorBgContainer:  isDark ? '#252540' : '#FFFFFF',
+            colorBorder:       isDark ? 'rgba(99,102,241,0.2)' : '#E4E4E7',
+            activeBorderColor: '#6366F1',
+            borderRadius:      8,
+          },
+          Tabs: {
+            inkBarColor:          '#6366F1',
+            itemActiveColor:      isDark ? '#A5B4FC' : '#4338CA',
+            itemSelectedColor:    isDark ? '#A5B4FC' : '#4338CA',
+            itemHoverColor:       isDark ? '#C7D2FE' : '#6366F1',
+            colorBorderSecondary: isDark ? 'rgba(99,102,241,0.1)' : '#E4E4E7',
           },
           Modal: {
-            borderRadiusLG: 12,
+            colorBgContainer:     isDark ? '#1A1A2E' : '#FFFFFF',
+            colorBorderSecondary: isDark ? 'rgba(99,102,241,0.15)' : '#E4E4E7',
+            borderRadiusLG:       16,
+          },
+          Drawer: {
+            colorBgContainer: isDark ? '#1A1A2E' : '#FFFFFF',
+          },
+          Popover: {
+            colorBgContainer: isDark ? '#252540' : '#FFFFFF',
+            borderRadius: 12,
+          },
+          Tooltip: {
+            colorBgSpotlight:    isDark ? '#252540' : '#18181B',
+            colorTextLightSolid: '#F0EFFF',
+            borderRadius: 8,
+            fontSize: 12,
+          },
+          Tag: {
+            borderRadius: 9999,
+            fontSizeSM: 11,
+          },
+          Badge: {
+            colorBgContainer: isDark ? '#1A1A2E' : '#FFFFFF',
+          },
+          Alert: { borderRadius: 12, fontSize: 13 },
+          Form: {
+            labelFontSize: 12,
+            labelColor: isDark ? '#A0A0C0' : '#52525B',
+            itemMarginBottom: 20,
+          },
+          Divider: {
+            colorSplit: isDark ? 'rgba(99,102,241,0.1)' : '#E4E4E7',
+          },
+          Pagination: {
+            colorBgContainer: isDark ? 'transparent' : '#FFFFFF',
+            colorBorder:      isDark ? 'rgba(99,102,241,0.2)' : '#E4E4E7',
+            borderRadius: 8,
+          },
+          Progress: {
+            colorFillSecondary: isDark ? 'rgba(99,102,241,0.1)' : '#EEF2FF',
+            remainingColor:     isDark ? 'rgba(99,102,241,0.1)' : '#EEF2FF',
           },
         },
       }}
