@@ -21,6 +21,11 @@ import { registerStudentDocumentIpc } from './studentdocument.ipc'
 import { registerLicenseIpc } from './license.ipc'
 import { registerMessagesIpc } from './messages.ipc'
 import { registerReportsIpc } from './reports.ipc'
+import { registerPrintCardIpc } from './printcard.ipc'
+import { registerExcelIpc } from './excel.ipc'
+import { registerAppreciationIpc } from './appreciation.ipc'
+import { registerDisciplineIpc } from './discipline.ipc'
+import { registerRelancesIpc } from './relances.ipc'
 import path from 'path'
 
 export function registerIpcHandlers(db: PrismaClient): void {
@@ -51,4 +56,9 @@ export function registerIpcHandlers(db: PrismaClient): void {
   registerLicenseIpc(db)
   registerMessagesIpc(db)
   registerReportsIpc(db)
+  registerPrintCardIpc(db)
+  registerExcelIpc(db)
+  registerAppreciationIpc()
+  registerDisciplineIpc(db)
+  registerRelancesIpc(db)
 }
