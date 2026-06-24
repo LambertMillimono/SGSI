@@ -168,10 +168,29 @@ model Student {
   email         String?
   photo         String?
   createdAt     DateTime          @default(now())
-  enrollments   Enrollment[]
-  parents       StudentParent[]
-  documents     StudentDocument[]
-  medicalRecord MedicalRecord?
+  enrollments      Enrollment[]
+  parents          StudentParent[]
+  documents        StudentDocument[]
+  medicalRecord    MedicalRecord?
+  disciplinaryRecs DisciplinaryRecord[]
+  reminders        ReminderLog[]
+}
+
+// ─── SANCTIONS DISCIPLINAIRES ──────────────────────────────────────────────────
+
+model DisciplinaryRecord {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date        DateTime @default(now())
+  type        String   // AVERTISSEMENT | BLAME | EXCLUSION_TEMP | EXCLUSION_DEF | CONVOCATION | AUTRE
+  description String
+  sanction    String?
+  issuedBy    String   // userId of the issuer
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  note        String?
+  createdAt   DateTime @default(now())
 }
 
 model Enrollment {
@@ -213,6 +232,7 @@ model Parent {
   email      String?
   accessCode String?         @unique
   students   StudentParent[]
+  reminders  ReminderLog[]
 }
 
 model StudentParent {
@@ -483,4 +503,21 @@ model Message {
   parent      Message?  @relation("MessageThread", fields: [parentId], references: [id])
   replies     Message[] @relation("MessageThread")
   createdAt   DateTime  @default(now())
+}
+
+// ─── RAPPELS DE PAIEMENT ──────────────────────────────────────────────────────
+
+model ReminderLog {
+  id          String   @id @default(cuid())
+  parentId    String
+  studentId   String
+  amountDue   Float
+  channel     String
+  status      String
+  sentAt      DateTime @default(now())
+  errorMsg    String?
+  schoolYear  String   @default("")
+
+  parent  Parent  @relation(fields: [parentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
 }
