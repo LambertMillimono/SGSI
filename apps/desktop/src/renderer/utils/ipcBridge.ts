@@ -46,6 +46,12 @@ export const ipc = {
       invoke<null>('students:delete', id, actorId),
     enroll: (studentId: string, classId: string, yearId: string, actorId: string) =>
       invoke<any>('students:enroll', studentId, classId, yearId, actorId),
+    printCard:        (studentId: string) => invoke<any>('students:printCard', studentId),
+    saveCardPdf:      (studentId: string) => invoke<any>('students:saveCardPdf', studentId),
+    downloadTemplate: () => invoke<any>('students:downloadTemplate'),
+    importExcel:      () => invoke<any>('students:importExcel'),
+    confirmImport:    (rows: any[], actorId: string) => invoke<any>('students:confirmImport', rows, actorId),
+    exportExcel:      (classId?: string) => invoke<any>('students:exportExcel', classId),
   },
   classes: {
     list: (yearId?: string) => invoke<any[]>('classes:list', yearId),
@@ -69,6 +75,12 @@ export const ipc = {
       invoke<any[]>('grades:statsBySubject', classId, period),
     parseCsv: () =>
       invoke<Array<{ lastName: string; firstName: string; matricule: string; value: number | null }> | null>('grades:parseCsv'),
+    downloadTemplate: () =>
+      invoke<any>('grades:downloadTemplate'),
+    importExcel: (classId: string, subjectId: string, period: number, actorId: string) =>
+      invoke<any>('grades:importExcel', classId, subjectId, period, actorId),
+    lockByEnrollment: (enrollmentId: string, period: number, actorId: string) =>
+      invoke<null>('grades:lock', enrollmentId, period, actorId),
   },
   bulletins: {
     generate: (enrollmentId: string, period: number, actorId: string) =>
@@ -100,6 +112,17 @@ export const ipc = {
       invoke<null>('feetypes:delete', id, actorId),
     report: (year: number) => invoke<any>('payments:report', year),
     reportByFeeType: (year: number) => invoke<any[]>('payments:reportByFeeType', year),
+    exportExcel:     (year: number) => invoke<any>('payments:exportExcel', year),
+    recordDiscount:  (data: any, cashierId: string) => invoke<any>('payments:recordDiscount', data, cashierId),
+    listDiscounts:   (enrollmentId: string) => invoke<any[]>('payments:listDiscounts', enrollmentId),
+    forecast:        (year: number) => invoke<any>('payments:forecast', year),
+    // Payment plans
+    createPlan: (data: any, cashierId: string) => invoke<any>('payments:createPlan', data, cashierId),
+    listPlans: (enrollmentId: string) => invoke<any[]>('payments:listPlans', enrollmentId),
+    listAllPlans: () => invoke<any[]>('payments:listAllPlans'),
+    payInstallment: (installmentId: string, method: string, cashierId: string) =>
+      invoke<any>('payments:payInstallment', installmentId, method, cashierId),
+    deletePlan: (planId: string, actorId: string) => invoke<null>('payments:deletePlan', planId, actorId),
   },
   subjects: {
     list: () => invoke<any[]>('subjects:list'),
@@ -122,12 +145,13 @@ export const ipc = {
     getSheet: (classId: string, date: string) => invoke<any[]>('absences:getSheet', classId, date),
     saveSheet: (records: any[], date: string) => invoke<{ saved: number }>('absences:saveSheet', records, date),
     listByEnrollment: (enrollmentId: string) => invoke<any[]>('absences:listByEnrollment', enrollmentId),
-    stats: (classId: string) => invoke<any[]>('absences:stats', classId),
+    stats:       (classId: string) => invoke<any[]>('absences:stats', classId),
+    globalStats: () => invoke<any>('absences:globalStats'),
   },
   backup: {
-    create: (format: 'db' | 'zip') => invoke<{ filePath: string }>('backup:create', format),
-    restore: (backupPath: string) => invoke<null>('backup:restore', backupPath),
-    list: () => invoke<any[]>('backup:list'),
+    create:  (format: 'db' | 'zip') => invoke<{ filePath: string }>('backup:create', format),
+    restore: () => invoke<boolean>('backup:restoreDialog'),
+    list:    () => invoke<any[]>('backup:list'),
   },
   teachers: {
     list: () => invoke<any[]>('teachers:list'),
@@ -202,7 +226,8 @@ export const ipc = {
     openImage: () => invoke<string | null>('dialog:openImage'),
     openAndCopyFile: (destDir: string, extensions?: string[]) =>
       invoke<{ filename: string; destPath: string } | null>('dialog:openAndCopyFile', destDir, extensions),
-    openPath: (filePath: string) => invoke<null>('shell:openPath', filePath),
+    openPath:        (filePath: string) => invoke<null>('shell:openPath', filePath),
+    openPrintWindow: (html: string, filename?: string) => invoke<null>('dialog:openPrintWindow', html, filename),
   },
   studentdocs: {
     list: (studentId: string) => invoke<any[]>('studentdocs:list', studentId),
@@ -235,10 +260,14 @@ export const ipc = {
       invoke<{ filePath: string } | null>('reports:exportFinancialExcel', year),
   },
   license: {
-    get: () => invoke<any | null>('license:get'),
-    activate: (key: string) => invoke<any>('license:activate', key),
+    get:        () => invoke<any>('license:get'),
+    activate:   (key: string) => invoke<any>('license:activate', key),
+    validate:   () => invoke<any>('license:validate'),
     deactivate: () => invoke<any>('license:deactivate'),
-    isValid: () => invoke<boolean>('license:isValid'),
+    isValid:    () => invoke<any>('license:isValid'),
+    request:       (data: any) => invoke<any>('license:request', data),
+    adminGenerate: (data: any) => invoke<any>('license:adminGenerate', data),
+    sendKey:       (data: any) => invoke<any>('license:sendKey', data),
   },
   settings: {
     getSchool: () => invoke<any>('settings:getSchool'),
@@ -260,5 +289,39 @@ export const ipc = {
     getSmtpConfig: () => invoke<any | null>('settings:getSmtpConfig'),
     setSmtpConfig: (config: any) => invoke<null>('settings:setSmtpConfig', config),
     testSmtp: (testEmail: string) => invoke<null>('settings:testSmtp', testEmail),
+    // Resend
+    getResendConfig:  () => invoke<any | null>('settings:getResendConfig'),
+    setResendConfig:  (config: { apiKey: string; fromName: string; fromEmail: string }) => invoke<null>('settings:setResendConfig', config),
+    testResend:            (testEmail: string) => invoke<{ id: string }>('settings:testResend', testEmail),
+    getAutoBackupConfig:   () => invoke<any>('settings:getAutoBackupConfig'),
+    setAutoBackupConfig:   (cfg: { enabled: boolean; frequency: string }) => invoke<null>('settings:setAutoBackupConfig', cfg),
+  },
+  sms: {
+    send:              (opts: { to: string; message: string; sender?: string }) => invoke<any>('sms:send', opts),
+    sendAbsenceAlert:  (data: { parentPhone: string; studentName: string; date: string; className: string }) => invoke<any>('sms:sendAbsenceAlert', data),
+  },
+  appreciation: {
+    getRanges:  () => invoke<any[]>('appreciation:getRanges'),
+    saveRanges: (ranges: any[]) => invoke<any[]>('appreciation:saveRanges', ranges),
+    reset:      () => invoke<any[]>('appreciation:reset'),
+  },
+  discipline: {
+    listByStudent: (studentId: string)             => invoke<any[]>('discipline:listByStudent', studentId),
+    listAll:       (filters?: any)                  => invoke<any[]>('discipline:listAll', filters),
+    create:        (data: any, issuedBy: string)    => invoke<any>('discipline:create', data, issuedBy),
+    resolve:       (id: string, note?: string)       => invoke<any>('discipline:resolve', id, note),
+    delete:        (id: string)                      => invoke<null>('discipline:delete', id),
+    stats:         (studentId: string)               => invoke<any>('discipline:stats', studentId),
+    globalStats:   ()                                => invoke<any>('discipline:globalStats'),
+  },
+  relances: {
+    list: (thresholdDays = 30) =>
+      invoke<any[]>('relances:list', thresholdDays),
+    send: (parentIds: string[]) =>
+      invoke<{ sent: number; failed: number; skipped: number }>('relances:send', parentIds),
+    history: () =>
+      invoke<any[]>('relances:history'),
+    printLetters: (parentIds: string[]) =>
+      invoke<string>('relances:printLetters', parentIds),
   },
 }
