@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "@sgsi/desktop",
-  "version": "1.0.0",
-  "description": "SGSI — Le numérique au service de l'éducation",
+  "version": "1.0.1",
+  "description": "SGSI â€” Le numÃ©rique au service de l'Ã©ducation",
   "author": {
     "name": "Lambert Millimono",
     "email": "lambertmillimono8@gmail.com"
@@ -69,3 +69,4 @@
     "vitest": "^1.6.0"
   }
 }
+
