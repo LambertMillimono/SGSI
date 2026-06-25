@@ -20,6 +20,13 @@ module.exports = {
     },
   ],
 
+  extraResources: [
+    {
+      from:   '../../packages/db/prisma/template.db',
+      to:     'template.db',
+    },
+  ],
+
   asarUnpack: [
     'node_modules/.prisma/client/query_engine*',
     'node_modules/.prisma/client/libquery_engine*',
