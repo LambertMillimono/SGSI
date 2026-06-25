@@ -33,6 +33,7 @@ import { InfirmerePage } from './pages/medical/InfirmerePage'
 import { TransportPage } from './pages/transport/TransportPage'
 import { MessagesPage } from './pages/messages/MessagesPage'
 import { RelancesPage } from './pages/relances/RelancesPage'
+import { UpdateNotifier } from './components/shared/UpdateNotifier'
 
 function G({ m, children }: { m: string; children: React.ReactNode }) {
   return <ModuleGuard module={m}>{children}</ModuleGuard>
@@ -130,6 +131,7 @@ function AppInner() {
 
   return (
     <LicenseGuard>
+      <UpdateNotifier />
       <AuthBootstrap>
       <Routes>
         <Route path="/login" element={<LoginPage />} />

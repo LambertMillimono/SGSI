@@ -13,6 +13,7 @@
     "preview": "electron-vite preview",
     "dist": "electron-vite build && electron-builder --config electron-builder.config.js",
     "dist:dir": "electron-vite build && electron-builder --dir --config electron-builder.config.js",
+    "dist:release": "electron-vite build && electron-builder --config electron-builder.config.js --publish always",
     "test": "vitest run",
     "typecheck": "tsc --project tsconfig.web.json && tsc --project tsconfig.node.json --noEmit"
   },
@@ -27,6 +28,7 @@
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "electron-updater": "^6.8.9",
     "exceljs": "^4.4.0",
     "express": "^4.19.0",
     "jsonwebtoken": "^9.0.2",

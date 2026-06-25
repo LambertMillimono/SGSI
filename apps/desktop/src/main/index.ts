@@ -5,6 +5,7 @@ import { registerIpcHandlers } from './ipc'
 import { startExpressServer, stopExpressServer } from './server'
 import { BackupService } from './services/backup.service'
 import { checkOverdueAtStartup } from './ipc/relances.ipc'
+import { initAutoUpdater } from './updater'
 
 // ── Suppress Chromium noise before app is ready ────────────────────────────
 // Fixes "Critical error found -8 / No file for / Failed to save user data"
@@ -83,6 +84,7 @@ app.whenReady().then(async () => {
     mainWindow.webContents.once('did-finish-load', () => {
       checkOverdueAtStartup(db, mainWindow!)
     })
+    initAutoUpdater(mainWindow)
   }
 
   const dbPath = process.env.NODE_ENV === 'development'

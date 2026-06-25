@@ -47,5 +47,10 @@ module.exports = {
     license:                            'build/license.txt',
   },
 
-  publish: null,
+  publish: {
+    provider: 'github',
+    owner:    'LambertMillimono',
+    repo:     'SGSI',
+    private:  false,
+  },
 }
