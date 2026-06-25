@@ -16,6 +16,7 @@ const QRCode = require("qrcode");
 const ExcelJS = require("exceljs");
 const express = require("express");
 const cors = require("cors");
+const electronUpdater = require("electron-updater");
 let _prisma = null;
 function getDb() {
   if (!_prisma) {
@@ -195,7 +196,7 @@ class AuthService {
     const user = await this.db.user.findUnique({ where: { id: userId } });
     if (!user || !user.isActive) return false;
     if (user.role === "SUPER_ADMIN") return true;
-    const { ROLE_PERMISSIONS } = await Promise.resolve().then(() => require("./chunks/index-DV54xHdP.js"));
+    const { ROLE_PERMISSIONS } = await Promise.resolve().then(() => require("./chunks/index-BVcwclxK.js"));
     const perms = ROLE_PERMISSIONS[user.role] ?? [];
     return perms.some(
       (p) => (p.module === module2 || p.module === "*") && p.actions.includes(action)
@@ -7112,6 +7113,49 @@ function stopExpressServer() {
     console.log("[SGSI] Serveur mobile arrete");
   }
 }
+electronUpdater.autoUpdater.autoDownload = false;
+electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
+function initAutoUpdater(win) {
+  if (process.env.NODE_ENV === "development") return;
+  const send = (channel, data) => {
+    if (!win.isDestroyed()) win.webContents.send(channel, data);
+  };
+  electronUpdater.autoUpdater.on("checking-for-update", () => send("update:checking"));
+  electronUpdater.autoUpdater.on("update-not-available", () => send("update:not-available"));
+  electronUpdater.autoUpdater.on("error", (err) => send("update:error", err.message));
+  electronUpdater.autoUpdater.on("update-available", (info) => {
+    send("update:available", {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    });
+  });
+  electronUpdater.autoUpdater.on("download-progress", (progress) => {
+    send("update:progress", {
+      percent: Math.round(progress.percent),
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond
+    });
+  });
+  electronUpdater.autoUpdater.on("update-downloaded", (info) => {
+    send("update:ready", { version: info.version });
+  });
+  electron.ipcMain.handle("update:download", async () => {
+    await electronUpdater.autoUpdater.downloadUpdate();
+  });
+  electron.ipcMain.handle("update:install", () => {
+    electronUpdater.autoUpdater.quitAndInstall(false, true);
+  });
+  setTimeout(() => {
+    electronUpdater.autoUpdater.checkForUpdates().catch(() => {
+    });
+  }, 5e3);
+  setInterval(() => {
+    electronUpdater.autoUpdater.checkForUpdates().catch(() => {
+    });
+  }, 4 * 60 * 60 * 1e3);
+}
 electron.app.commandLine.appendSwitch("disk-cache-size", "0");
 electron.app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 electron.app.commandLine.appendSwitch("disable-features", "AutofillServerCommunication");
@@ -7171,6 +7215,7 @@ electron.app.whenReady().then(async () => {
     mainWindow.webContents.once("did-finish-load", () => {
       checkOverdueAtStartup(db, mainWindow);
     });
+    initAutoUpdater(mainWindow);
   }
   const dbPath = process.env.NODE_ENV === "development" ? path.resolve(process.cwd(), "../../packages/db/prisma/sgsi.db") : path.join(process.env.APPDATA ?? "", "sgsi", "sgsi.db");
   scheduleAutoBackup(db, dbPath);
