@@ -1,9 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../../store'
-import { LicenseAdminPage } from '../license/LicenseAdminPage'
 
-function LicenseAdminSection() { return <LicenseAdminPage /> }
 import {
   Tabs, Form, Input, Button, Table, Tag, Modal, Select,
   Card, Space, Popconfirm, Typography, Alert, InputNumber,
@@ -2486,7 +2484,6 @@ const SETTINGS_NAV: Array<{
     items: [
       { key: 'backup',       icon: <CloudDownloadOutlined />,        label: 'Sauvegarde',        subtitle: 'Backup et restauration' },
       { key: 'license',      icon: <SafetyCertificateOutlined />,    label: 'Licence',           subtitle: 'Informations de licence' },
-      { key: 'licenseAdmin', icon: <KeyOutlined />,                  label: '🔑 Générer une clé', subtitle: 'Créer et envoyer des licences' },
       { key: 'auditlog',     icon: <HistoryOutlined />,              label: "Journal",            subtitle: 'Historique des actions' },
     ],
   },
@@ -2505,7 +2502,6 @@ const SETTINGS_CONTENT: Record<string, React.ReactNode> = {
   email:        <ResendTab />,
   backup:       <BackupTab />,
   license:      <LicenseTab />,
-  licenseAdmin: <LicenseAdminSection />,
   auditlog:     <AuditLogTab />,
 }
 
