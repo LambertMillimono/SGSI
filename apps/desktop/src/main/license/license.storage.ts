@@ -16,8 +16,11 @@ import { generateHardwareId } from './hardware'
 
 /* ── Constants ────────────────────────────────────────────────── */
 const STORAGE_VERSION = 1
-const CACHE_FILE      = path.join(app.getPath('userData'), '.sgsi_lic')
-const HMAC_SECRET     = 'sgsi-hmac-secret-v1-do-not-share'  // in production: env var
+// Chemin stable independant du productName pour eviter la perte de la licence lors des mises a jour
+const _APPDATA    = process.env.APPDATA ?? path.join(app.getPath('home'), 'AppData', 'Roaming')
+const _LIC_DIR    = path.join(_APPDATA, 'sgsi')
+const CACHE_FILE  = path.join(_LIC_DIR, '.sgsi_lic')
+const HMAC_SECRET = 'sgsi-hmac-secret-v1-do-not-share'  // in production: env var
 
 /* ── Types ────────────────────────────────────────────────────── */
 export interface LicenseCache {
@@ -115,6 +118,7 @@ export function saveLicense(data: LicenseCache): void {
     sig,
   }
 
+  if (!fs.existsSync(_LIC_DIR)) fs.mkdirSync(_LIC_DIR, { recursive: true })
   fs.writeFileSync(CACHE_FILE, JSON.stringify(envelope), { encoding: 'utf8', mode: 0o600 })
 }
 
