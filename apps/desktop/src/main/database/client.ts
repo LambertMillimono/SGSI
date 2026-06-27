@@ -7,8 +7,10 @@ let _prisma: PrismaClient | null = null
 
 function getDbPath(): string {
   const isPackaged = app.isPackaged
+  // Chemin stable independant du productName pour eviter la perte de donnees
+  const appDataDir = process.env.APPDATA ?? path.join(app.getPath('home'), 'AppData', 'Roaming')
   return isPackaged
-    ? path.join(app.getPath('userData'), 'sgsi.db')
+    ? path.join(appDataDir, 'sgsi', 'sgsi.db')
     : path.resolve(__dirname, '../../../../packages/db/prisma/sgsi.db')
 }
 
@@ -19,7 +21,7 @@ function ensureDbExists(dbPath: string): void {
   }
 
   if (!fs.existsSync(dbPath)) {
-    // Copier la DB template fournie avec l'app
+    // Copier la DB template fournie avec l'app (contient le schema + données de démarrage)
     const templatePath = path.join(process.resourcesPath, 'template.db')
     if (fs.existsSync(templatePath)) {
       fs.copyFileSync(templatePath, dbPath)
