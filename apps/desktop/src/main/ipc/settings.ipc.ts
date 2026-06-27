@@ -88,7 +88,7 @@ export function registerSettingsIpc(db: PrismaClient): void {
       })
       return ok({ id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName })
     } catch (e: any) { return fail(e.code === 'P2002' ? 'USERNAME_TAKEN' : 'ERROR', e.code === 'P2002' ? 'Nom d\'utilisateur déjà utilisé' : e.message) }
-  })
+  }))
 
   ipcMain.handle('settings:updateUser', async (_, id: string, data: any) => {
     try {
