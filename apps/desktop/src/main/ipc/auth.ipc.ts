@@ -6,13 +6,53 @@ import type { PrismaClient } from '@prisma/client'
 import { AuthService } from '../services/auth.service'
 import { ok, fail } from '@sgsi/shared'
 import { sendEmail, loadBrevoConfig } from '../services/email.service'
+import { setSession, clearSession, setJwtSecret } from '../auth-state'
+
+// ── Brute-force protection ───────────────────────────────────────────
+const loginAttempts = new Map<string, { count: number; lockedUntil?: number }>()
+const MAX_ATTEMPTS  = 5
+const LOCKOUT_MS    = 15 * 60 * 1000 // 15 minutes
+
+function checkBruteForce(username: string): void {
+  const key    = username.toLowerCase().trim()
+  const record = loginAttempts.get(key)
+  if (record?.lockedUntil && Date.now() < record.lockedUntil) {
+    const mins = Math.ceil((record.lockedUntil - Date.now()) / 60000)
+    throw Object.assign(new Error(`Compte bloque. Reessayez dans ${mins} minute(s).`), { code: 'LOCKED' })
+  }
+}
+
+function recordFailedAttempt(username: string): void {
+  const key    = username.toLowerCase().trim()
+  const record = loginAttempts.get(key) ?? { count: 0 }
+  record.count++
+  if (record.count >= MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCKOUT_MS
+    record.count       = 0
+  }
+  loginAttempts.set(key, record)
+}
+
+function clearAttempts(username: string): void {
+  loginAttempts.delete(username.toLowerCase().trim())
+}
 
 export function registerAuthIpc(db: PrismaClient, jwtSecret: string): void {
   const auth = new AuthService(db, jwtSecret)
+  setJwtSecret(jwtSecret)
 
   ipcMain.handle('auth:login', async (_, username: string, password: string) => {
-    try { return ok(await auth.login(username, password)) }
-    catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
+    try {
+      checkBruteForce(username)
+      const result = await auth.login(username, password)
+      clearAttempts(username)
+      // Store session server-side (main process) — token never persisted in renderer
+      setSession({ userId: result.user.id, username: result.user.username, role: result.user.role, token: result.token })
+      return ok(result)
+    } catch (e: any) {
+      if (e.code !== 'LOCKED') recordFailedAttempt(username)
+      return fail(e.code ?? 'ERROR', e.message)
+    }
   })
 
   ipcMain.handle('auth:verifyToken', async (_, token: string) => {
@@ -35,8 +75,10 @@ export function registerAuthIpc(db: PrismaClient, jwtSecret: string): void {
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
   })
 
-  // JWT is stateless — logout is handled client-side by discarding the token
-  ipcMain.handle('auth:logout', async () => ok(null))
+  ipcMain.handle('auth:logout', async () => {
+    clearSession()
+    return ok(null)
+  })
 
   ipcMain.handle('auth:findByUsername', async (_, username: string) => {
     try {

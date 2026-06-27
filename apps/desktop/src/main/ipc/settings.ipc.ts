@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import type { PrismaClient } from '@prisma/client'
 import { ok, fail } from '@sgsi/shared'
 import { loadBrevoConfig, saveBrevoConfig, sendEmail, sendSms } from '../services/email.service'
+import { withAuth, withRole } from '../ipc-guard'
 
 const DEFAULT_MODULES = [
   'students', 'grades', 'payments', 'absences', 'schedule',
@@ -42,7 +43,7 @@ export function registerSettingsIpc(db: PrismaClient): void {
     } catch (e: any) { return fail('ERROR', e.message) }
   })
 
-  ipcMain.handle('settings:updateSchool', async (_, data: any) => {
+  ipcMain.handle('settings:updateSchool', withRole('DIRECTOR', async (_, data: any) => {
     try {
       const sanitized = {
         ...data,
@@ -57,9 +58,9 @@ export function registerSettingsIpc(db: PrismaClient): void {
       }
       return ok(school)
     } catch (e: any) { return fail('ERROR', e.message) }
-  })
+  }))
 
-  ipcMain.handle('settings:listUsers', async () => {
+  ipcMain.handle('settings:listUsers', withRole('DIRECTOR', async () => {
     try {
       const users = await db.user.findMany({
         select: { id: true, username: true, firstName: true, lastName: true, role: true, isActive: true, lastLogin: true, email: true, phone: true, createdAt: true },
@@ -67,9 +68,9 @@ export function registerSettingsIpc(db: PrismaClient): void {
       })
       return ok(users)
     } catch (e: any) { return fail('ERROR', e.message) }
-  })
+  }))
 
-  ipcMain.handle('settings:createUser', async (_, data: any) => {
+  ipcMain.handle('settings:createUser', withRole('DIRECTOR', async (_, data: any) => {
     try {
       const bcrypt = require('bcryptjs')
       const hashed = await bcrypt.hash(data.password ?? 'Temp@1234', 12)
