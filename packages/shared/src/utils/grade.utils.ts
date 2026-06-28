@@ -30,12 +30,13 @@ export function calcRankings(
   }[]
 ): Ranking[] {
   // Non-eliminated students ranked first (by avg desc), then eliminated (by avg desc)
+  // Secondary sort by student name ensures deterministic ranking in case of tie
   const passing = [...averages]
     .filter((a) => !a.isEliminated)
-    .sort((a, b) => b.generalAverage - a.generalAverage)
+    .sort((a, b) => b.generalAverage - a.generalAverage || a.studentName.localeCompare(b.studentName))
   const eliminated = [...averages]
     .filter((a) => a.isEliminated)
-    .sort((a, b) => b.generalAverage - a.generalAverage)
+    .sort((a, b) => b.generalAverage - a.generalAverage || a.studentName.localeCompare(b.studentName))
 
   return [...passing, ...eliminated].map((item, index) => ({
     ...item,

@@ -209,11 +209,12 @@ export class GradeService {
       for (const enrollment of enrollments) {
         const grades = enrollment.grades.filter((g) => g.subjectId === cs.subjectId)
         if (grades.length > 0) {
-          const totalWeight = grades.reduce((s, g) => s + g.weight, 0)
+          // Utilise DEFAULT_EVAL_WEIGHTS comme calcSubjectAverage (normalise à /20)
+          const totalWeight = grades.reduce((s, g) => s + (DEFAULT_EVAL_WEIGHTS[g.evalType] ?? 1), 0)
           const avg = totalWeight > 0
-            ? grades.reduce((s, g) => s + g.value * g.weight, 0) / totalWeight
+            ? grades.reduce((s, g) => s + (g.value / g.maxValue) * 20 * (DEFAULT_EVAL_WEIGHTS[g.evalType] ?? 1), 0) / totalWeight
             : 0
-          subjectGrades.push(avg)
+          subjectGrades.push(Math.round(avg * 100) / 100)
         }
       }
       const classAverage = subjectGrades.length > 0

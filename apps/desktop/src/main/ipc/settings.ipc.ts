@@ -90,7 +90,7 @@ export function registerSettingsIpc(db: PrismaClient): void {
     } catch (e: any) { return fail(e.code === 'P2002' ? 'USERNAME_TAKEN' : 'ERROR', e.code === 'P2002' ? 'Nom d\'utilisateur déjà utilisé' : e.message) }
   }))
 
-  ipcMain.handle('settings:updateUser', async (_, id: string, data: any) => {
+  ipcMain.handle('settings:updateUser', withRole('DIRECTOR', async (_, id: string, data: any) => {
     try {
       const user = await db.user.update({
         where: { id },
@@ -105,7 +105,7 @@ export function registerSettingsIpc(db: PrismaClient): void {
       })
       return ok(user)
     } catch (e: any) { return fail('ERROR', e.message) }
-  })
+  }))
 
   ipcMain.handle('settings:resetUserPassword', async (_, userId: string, requestedBy: string) => {
     try {

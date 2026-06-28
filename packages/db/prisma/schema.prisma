@@ -277,6 +277,8 @@ model Grade {
   weight       Float      @default(1)
   isLocked     Boolean    @default(false)
   enteredAt    DateTime   @default(now())
+
+  @@unique([enrollmentId, subjectId, period, evalType])
 }
 
 model Bulletin {

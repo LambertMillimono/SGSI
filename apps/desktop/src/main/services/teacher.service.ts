@@ -205,6 +205,21 @@ export class TeacherService {
     advances?: number
     deductions?: number
   }, actorId: string) {
+    // Check for existing salary to give a clear user-friendly error
+    const existing = await this.db.salary.findFirst({
+      where: { teacherId: data.teacherId, month: data.month, year: data.year },
+    })
+    if (existing) {
+      // Update existing instead of creating duplicate
+      const net = (data.baseSalary + (data.bonuses ?? 0)) - (data.advances ?? 0) - (data.deductions ?? 0)
+      const updated = await this.db.salary.update({
+        where: { id: existing.id },
+        data: { baseSalary: data.baseSalary, bonuses: data.bonuses ?? 0, advances: data.advances ?? 0, deductions: data.deductions ?? 0, netSalary: net },
+      })
+      await this.audit(actorId, 'UPDATE', 'salary', updated.id)
+      return updated
+    }
+
     const net = (data.baseSalary + (data.bonuses ?? 0)) - (data.advances ?? 0) - (data.deductions ?? 0)
     const salary = await this.db.salary.create({
       data: {

@@ -2,14 +2,15 @@ import { ipcMain } from 'electron'
 import type { PrismaClient } from '@prisma/client'
 import { PaymentService } from '../services/payment.service'
 import { ok, fail } from '@sgsi/shared'
+import { withAuth, withRole } from '../ipc-guard'
 
 export function registerPaymentsIpc(db: PrismaClient): void {
   const service = new PaymentService(db)
 
-  ipcMain.handle('payments:record', async (_, data, cashierId: string) => {
+  ipcMain.handle('payments:record', withAuth(async (_, data, cashierId: string) => {
     try { return ok(await service.record(data, cashierId)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
-  })
+  }))
 
   ipcMain.handle('payments:list', async (_, enrollmentId: string) => {
     try { return ok(await service.listByEnrollment(enrollmentId)) }

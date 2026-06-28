@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client'
 import { StudentService } from '../services/student.service'
 import { ClassService } from '../services/class.service'
 import { ok, fail } from '@sgsi/shared'
+import { withAuth, withRole } from '../ipc-guard'
 
 export function registerStudentsIpc(db: PrismaClient): void {
   const students = new StudentService(db)
@@ -18,25 +19,25 @@ export function registerStudentsIpc(db: PrismaClient): void {
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
   })
 
-  ipcMain.handle('students:create', async (_, data, actorId: string) => {
+  ipcMain.handle('students:create', withAuth(async (_, data, actorId: string) => {
     try { return ok(await students.create(data, actorId)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
-  })
+  }))
 
-  ipcMain.handle('students:update', async (_, id: string, data, actorId: string) => {
+  ipcMain.handle('students:update', withAuth(async (_, id: string, data, actorId: string) => {
     try { return ok(await students.update(id, data, actorId)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
-  })
+  }))
 
-  ipcMain.handle('students:delete', async (_, id: string, actorId: string) => {
+  ipcMain.handle('students:delete', withRole('SECRETARY', async (_, id: string, actorId: string) => {
     try { await students.delete(id, actorId); return ok(null) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
-  })
+  }))
 
-  ipcMain.handle('students:enroll', async (_, studentId: string, classId: string, yearId: string, actorId: string) => {
+  ipcMain.handle('students:enroll', withAuth(async (_, studentId: string, classId: string, yearId: string, actorId: string) => {
     try { return ok(await students.enroll(studentId, classId, yearId, actorId)) }
     catch (e: any) { return fail(e.code ?? 'ERROR', e.message) }
-  })
+  }))
 
   // Classes IPC (registered here to avoid extra file)
   ipcMain.handle('classes:list', async (_, yearId?: string) => {

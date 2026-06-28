@@ -18,13 +18,32 @@ const express = require("express");
 const cors = require("cors");
 const electronUpdater = require("electron-updater");
 let _prisma = null;
+function getDbPath() {
+  const isPackaged = electron.app.isPackaged;
+  const appDataDir = process.env.APPDATA ?? path.join(electron.app.getPath("home"), "AppData", "Roaming");
+  return isPackaged ? path.join(appDataDir, "sgsi", "sgsi.db") : path.resolve(__dirname, "../../../../packages/db/prisma/sgsi.db");
+}
+function ensureDbExists(dbPath) {
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  if (!fs.existsSync(dbPath)) {
+    const templatePath = path.join(process.resourcesPath, "template.db");
+    if (fs.existsSync(templatePath)) {
+      fs.copyFileSync(templatePath, dbPath);
+    }
+  }
+}
 function getDb() {
   if (!_prisma) {
-    const isPackaged = process.env.NODE_ENV === "production";
-    const dbPath = isPackaged ? path.join(process.env.APPDATA ?? "", "sgsi", "sgsi.db") : path.resolve(__dirname, "../../../../packages/db/prisma/sgsi.db");
+    const dbPath = getDbPath();
+    if (electron.app.isPackaged) {
+      ensureDbExists(dbPath);
+    }
     _prisma = new client.PrismaClient({
       datasources: { db: { url: `file:${dbPath}` } },
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+      log: electron.app.isPackaged ? ["error"] : ["error", "warn"]
     });
   }
   return _prisma;
@@ -421,12 +440,69 @@ function buildTeacherWelcomeEmail(opts) {
 </body>
 </html>`;
 }
+let _session = null;
+let _jwtSecret = "change-me-in-production";
+function setJwtSecret(secret) {
+  _jwtSecret = secret || "change-me-in-production";
+}
+function setSession(session) {
+  _session = session;
+}
+function clearSession() {
+  _session = null;
+}
+function getSession() {
+  return _session;
+}
+function verifyToken(token) {
+  try {
+    const payload = jwt.verify(token, _jwtSecret);
+    return { userId: payload.userId, username: payload.username, role: payload.role };
+  } catch {
+    return null;
+  }
+}
+function getAuthenticatedRole() {
+  if (!_session) return null;
+  const payload = verifyToken(_session.token);
+  return payload?.role ?? null;
+}
+const loginAttempts = /* @__PURE__ */ new Map();
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1e3;
+function checkBruteForce(username) {
+  const key = username.toLowerCase().trim();
+  const record = loginAttempts.get(key);
+  if (record?.lockedUntil && Date.now() < record.lockedUntil) {
+    const mins = Math.ceil((record.lockedUntil - Date.now()) / 6e4);
+    throw Object.assign(new Error(`Compte bloque. Reessayez dans ${mins} minute(s).`), { code: "LOCKED" });
+  }
+}
+function recordFailedAttempt(username) {
+  const key = username.toLowerCase().trim();
+  const record = loginAttempts.get(key) ?? { count: 0 };
+  record.count++;
+  if (record.count >= MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCKOUT_MS;
+    record.count = 0;
+  }
+  loginAttempts.set(key, record);
+}
+function clearAttempts(username) {
+  loginAttempts.delete(username.toLowerCase().trim());
+}
 function registerAuthIpc(db, jwtSecret) {
   const auth = new AuthService(db, jwtSecret);
+  setJwtSecret(jwtSecret);
   electron.ipcMain.handle("auth:login", async (_, username, password) => {
     try {
-      return ok$c(await auth.login(username, password));
+      checkBruteForce(username);
+      const result = await auth.login(username, password);
+      clearAttempts(username);
+      setSession({ userId: result.user.id, username: result.user.username, role: result.user.role, token: result.token });
+      return ok$c(result);
     } catch (e) {
+      if (e.code !== "LOCKED") recordFailedAttempt(username);
       return fail$c(e.code ?? "ERROR", e.message);
     }
   });
@@ -459,7 +535,10 @@ function registerAuthIpc(db, jwtSecret) {
       return fail$c(e.code ?? "ERROR", e.message);
     }
   });
-  electron.ipcMain.handle("auth:logout", async () => ok$c(null));
+  electron.ipcMain.handle("auth:logout", async () => {
+    clearSession();
+    return ok$c(null);
+  });
   electron.ipcMain.handle("auth:findByUsername", async (_, username) => {
     try {
       const rows = await db.$queryRaw`
@@ -1142,10 +1221,10 @@ class BulletinService {
     }
   }
 }
-function parseGrade(raw) {
+function parseGrade(raw, maxValue = 20) {
   if (raw === null || raw === void 0 || raw === "") return null;
   const n = parseFloat(String(raw).replace(",", "."));
-  if (isNaN(n) || n < 0 || n > 20) return null;
+  if (isNaN(n) || n < 0 || n > maxValue) return null;
   return n;
 }
 function parseGradeXlsx(data) {
@@ -2051,6 +2130,31 @@ function registerBackupIpc(db, dbPath) {
     }
   });
 }
+const ROLE_HIERARCHY = {
+  TEACHER: 1,
+  SECRETARY: 2,
+  ACCOUNTANT: 2,
+  DIRECTOR: 3,
+  SUPER_ADMIN: 4
+};
+function withRole(minRole, handler) {
+  return async (event, ...args) => {
+    const session = getSession();
+    if (!session) {
+      return fail$c("UNAUTHORIZED", "Non authentifie.");
+    }
+    const role = getAuthenticatedRole();
+    if (!role) {
+      return fail$c("UNAUTHORIZED", "Session invalide.");
+    }
+    const userLevel = ROLE_HIERARCHY[role] ?? 0;
+    const minLevel = ROLE_HIERARCHY[minRole];
+    if (userLevel < minLevel) {
+      return fail$c("FORBIDDEN", `Acces refuse. Role requis: ${minRole}`);
+    }
+    return handler(event, ...args);
+  };
+}
 const DEFAULT_MODULES = [
   "students",
   "grades",
@@ -2094,7 +2198,7 @@ function registerSettingsIpc(db) {
       return fail$c("ERROR", e.message);
     }
   });
-  electron.ipcMain.handle("settings:updateSchool", async (_, data) => {
+  electron.ipcMain.handle("settings:updateSchool", withRole("DIRECTOR", async (_, data) => {
     try {
       const sanitized = {
         ...data,
@@ -2111,8 +2215,8 @@ function registerSettingsIpc(db) {
     } catch (e) {
       return fail$c("ERROR", e.message);
     }
-  });
-  electron.ipcMain.handle("settings:listUsers", async () => {
+  }));
+  electron.ipcMain.handle("settings:listUsers", withRole("DIRECTOR", async () => {
     try {
       const users = await db.user.findMany({
         select: { id: true, username: true, firstName: true, lastName: true, role: true, isActive: true, lastLogin: true, email: true, phone: true, createdAt: true },
@@ -2122,8 +2226,8 @@ function registerSettingsIpc(db) {
     } catch (e) {
       return fail$c("ERROR", e.message);
     }
-  });
-  electron.ipcMain.handle("settings:createUser", async (_, data) => {
+  }));
+  electron.ipcMain.handle("settings:createUser", withRole("DIRECTOR", async (_, data) => {
     try {
       const bcrypt2 = require("bcryptjs");
       const hashed = await bcrypt2.hash(data.password ?? "Temp@1234", 12);
@@ -2143,7 +2247,7 @@ function registerSettingsIpc(db) {
     } catch (e) {
       return fail$c(e.code === "P2002" ? "USERNAME_TAKEN" : "ERROR", e.code === "P2002" ? "Nom d'utilisateur déjà utilisé" : e.message);
     }
-  });
+  }));
   electron.ipcMain.handle("settings:updateUser", async (_, id, data) => {
     try {
       const user = await db.user.update({
@@ -2837,6 +2941,20 @@ class TeacherService {
     await this.audit(actorId, "UPDATE", "salary", salaryId);
     return salary;
   }
+  async getSalaryReceipt(salaryId) {
+    const salary = await this.db.salary.findUnique({
+      where: { id: salaryId },
+      include: {
+        teacher: {
+          include: {
+            user: { select: { firstName: true, lastName: true, email: true, phone: true } }
+          }
+        }
+      }
+    });
+    if (!salary) throw new Error("Bulletin de salaire introuvable");
+    return salary;
+  }
 }
 function registerTeachersIpc(db) {
   const svc = new TeacherService(db);
@@ -2893,6 +3011,13 @@ function registerTeachersIpc(db) {
   electron.ipcMain.handle("teachers:markSalaryPaid", async (_, salaryId, actorId) => {
     try {
       return ok$c(await svc.markSalaryPaid(salaryId, actorId));
+    } catch (e) {
+      return fail$c("ERROR", e.message);
+    }
+  });
+  electron.ipcMain.handle("teachers:getSalaryReceipt", async (_, salaryId) => {
+    try {
+      return ok$c(await svc.getSalaryReceipt(salaryId));
     } catch (e) {
       return fail$c("ERROR", e.message);
     }
@@ -3907,7 +4032,9 @@ function getShortHardwareId() {
   return generateHardwareId().slice(0, 16).toUpperCase();
 }
 const STORAGE_VERSION = 1;
-const CACHE_FILE = path.join(electron.app.getPath("userData"), ".sgsi_lic");
+const _APPDATA = process.env.APPDATA ?? path.join(electron.app.getPath("home"), "AppData", "Roaming");
+const _LIC_DIR = path.join(_APPDATA, "sgsi");
+const CACHE_FILE = path.join(_LIC_DIR, ".sgsi_lic");
 const HMAC_SECRET = "sgsi-hmac-secret-v1-do-not-share";
 function deriveKey() {
   const hwId = generateHardwareId();
@@ -3964,6 +4091,7 @@ function saveLicense(data) {
     data: enc_data,
     sig
   };
+  if (!fs.existsSync(_LIC_DIR)) fs.mkdirSync(_LIC_DIR, { recursive: true });
   fs.writeFileSync(CACHE_FILE, JSON.stringify(envelope), { encoding: "utf8", mode: 384 });
 }
 function loadLicense() {
@@ -4909,10 +5037,14 @@ async function buildCardHtml(student, school) {
     color: { dark: "#1565C0", light: "#FFFFFF" }
   });
   let photoSrc = "";
-  if (student.photo && fs.existsSync(student.photo)) {
-    const ext = path.extname(student.photo).slice(1) || "jpeg";
-    const data = fs.readFileSync(student.photo);
-    photoSrc = `data:image/${ext};base64,${data.toString("base64")}`;
+  if (student.photo) {
+    if (student.photo.startsWith("data:")) {
+      photoSrc = student.photo;
+    } else if (fs.existsSync(student.photo)) {
+      const ext = path.extname(student.photo).slice(1) || "jpeg";
+      const data = fs.readFileSync(student.photo);
+      photoSrc = `data:image/${ext};base64,${data.toString("base64")}`;
+    }
   }
   const joinedDate = enrollment?.enrolledAt ? new Date(enrollment.enrolledAt).toLocaleDateString("fr-FR") : (/* @__PURE__ */ new Date()).toLocaleDateString("fr-FR");
   const expireYear = ((/* @__PURE__ */ new Date()).getFullYear() + 1).toString();
@@ -7146,6 +7278,10 @@ function initAutoUpdater(win) {
   });
   electron.ipcMain.handle("update:install", () => {
     electronUpdater.autoUpdater.quitAndInstall(false, true);
+  });
+  electron.ipcMain.handle("update:check", async () => {
+    await electronUpdater.autoUpdater.checkForUpdates().catch(() => {
+    });
   });
   setTimeout(() => {
     electronUpdater.autoUpdater.checkForUpdates().catch(() => {
