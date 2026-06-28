@@ -44,6 +44,11 @@ export function initAutoUpdater(win: BrowserWindow): void {
     autoUpdater.quitAndInstall(false, true)
   })
 
+  // Verification manuelle depuis les Parametres
+  ipcMain.handle('update:check', async () => {
+    await autoUpdater.checkForUpdates().catch(() => {})
+  })
+
   // Vérifier les mises à jour 5 secondes après le démarrage
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(() => {})

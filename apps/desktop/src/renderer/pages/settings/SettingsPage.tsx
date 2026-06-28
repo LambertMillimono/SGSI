@@ -2444,6 +2444,115 @@ function ResendTab() {
   )
 }
 
+// ─── Onglet Mises à jour ───────────────────────────────────────────────────────
+function UpdateTab() {
+  const [status, setStatus]     = useState<'idle'|'checking'|'available'|'downloading'|'ready'|'uptodate'|'error'>('idle')
+  const [version, setVersion]   = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [errMsg, setErrMsg]     = useState<string | null>(null)
+  const appVersion = (window as any).__APP_VERSION__ ?? '1.0.x'
+
+  useEffect(() => {
+    const electron = (window as any).electron
+    if (!electron?.ipc) return
+    const onAvailable  = (_: any, d: any) => { setStatus('available'); setVersion(d.version) }
+    const onProgress   = (_: any, d: any) => { setStatus('downloading'); setProgress(d.percent) }
+    const onReady      = (_: any, d: any) => { setStatus('ready'); setVersion(d.version) }
+    const onNotAvail   = () => setStatus('uptodate')
+    const onError      = (_: any, msg: string) => { setStatus('error'); setErrMsg(msg) }
+    electron.ipc.on('update:available',     onAvailable)
+    electron.ipc.on('update:progress',      onProgress)
+    electron.ipc.on('update:ready',         onReady)
+    electron.ipc.on('update:not-available', onNotAvail)
+    electron.ipc.on('update:error',         onError)
+    return () => {
+      electron.ipc.removeListener?.('update:available',     onAvailable)
+      electron.ipc.removeListener?.('update:progress',      onProgress)
+      electron.ipc.removeListener?.('update:ready',         onReady)
+      electron.ipc.removeListener?.('update:not-available', onNotAvail)
+      electron.ipc.removeListener?.('update:error',         onError)
+    }
+  }, [])
+
+  const handleCheck = () => {
+    setStatus('checking'); setErrMsg(null)
+    const electron = (window as any).electron
+    electron?.ipc?.invoke('update:check').catch(() => setStatus('error'))
+  }
+
+  const handleDownload = () => {
+    setStatus('downloading')
+    const electron = (window as any).electron
+    electron?.ipc?.invoke('update:download')
+  }
+
+  const handleInstall = () => {
+    const electron = (window as any).electron
+    electron?.ipc?.invoke('update:install')
+  }
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <Title level={4}>Mises a jour</Title>
+
+      <Card style={{ marginBottom: 16 }}>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <Text strong>Version installee</Text>
+              <br />
+              <Tag color="blue" style={{ marginTop: 4 }}>v{appVersion}</Tag>
+            </div>
+            <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
+          </div>
+
+          {status === 'idle' && (
+            <Button type="primary" icon={<CloudDownloadOutlined />} onClick={handleCheck}>
+              Verifier les mises a jour
+            </Button>
+          )}
+          {status === 'checking' && <Button loading>Verification en cours...</Button>}
+          {status === 'uptodate' && (
+            <Alert type="success" message="Vous avez la derniere version" showIcon
+              action={<Button size="small" onClick={handleCheck}>Re-verifier</Button>} />
+          )}
+          {status === 'available' && (
+            <Alert type="info" showIcon
+              message={`Version ${version} disponible`}
+              description="Une nouvelle version est disponible. Telechargez-la maintenant."
+              action={<Button type="primary" size="small" onClick={handleDownload}>Telecharger</Button>}
+            />
+          )}
+          {status === 'downloading' && (
+            <Alert type="info" showIcon message={`Telechargement : ${progress}%`}
+              description={<div style={{ background: '#e6f7ff', height: 8, borderRadius: 4, marginTop: 8 }}>
+                <div style={{ background: '#1677ff', width: `${progress}%`, height: '100%', borderRadius: 4, transition: 'width 0.3s' }} />
+              </div>}
+            />
+          )}
+          {status === 'ready' && (
+            <Alert type="success" showIcon
+              message={`Version ${version} prete a installer`}
+              description="La mise a jour est telechargee. Redemarrez l'application pour l'installer."
+              action={<Button type="primary" size="small" onClick={handleInstall}>Redemarrer et installer</Button>}
+            />
+          )}
+          {status === 'error' && (
+            <Alert type="error" showIcon message="Erreur lors de la verification"
+              description={errMsg ?? 'Verifiez votre connexion internet.'}
+              action={<Button size="small" onClick={handleCheck}>Reessayer</Button>}
+            />
+          )}
+        </Space>
+      </Card>
+
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        Les mises a jour sont verifiees automatiquement au demarrage de l'application.
+      </Text>
+    </div>
+  )
+}
+
 // ─── Page principale — Navigation verticale gauche (Stripe style) ─────────────
 const SETTINGS_NAV: Array<{
   group: string
@@ -2485,6 +2594,7 @@ const SETTINGS_NAV: Array<{
       { key: 'backup',       icon: <CloudDownloadOutlined />,        label: 'Sauvegarde',        subtitle: 'Backup et restauration' },
       { key: 'license',      icon: <SafetyCertificateOutlined />,    label: 'Licence',           subtitle: 'Informations de licence' },
       { key: 'auditlog',     icon: <HistoryOutlined />,              label: "Journal",            subtitle: 'Historique des actions' },
+      { key: 'updates',      icon: <CloudDownloadOutlined />,        label: 'Mises a jour',      subtitle: 'Version et mises a jour' },
     ],
   },
 ]
@@ -2503,6 +2613,7 @@ const SETTINGS_CONTENT: Record<string, React.ReactNode> = {
   backup:       <BackupTab />,
   license:      <LicenseTab />,
   auditlog:     <AuditLogTab />,
+  updates:      <UpdateTab />,
 }
 
 export function SettingsPage() {
