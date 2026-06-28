@@ -51,12 +51,16 @@ async function buildCardHtml(student: any, school: any): Promise<string> {
     color: { dark: '#1565C0', light: '#FFFFFF' },
   })
 
-  /* Photo */
+  /* Photo — supports both base64 data URLs and legacy file paths */
   let photoSrc = ''
-  if (student.photo && fs.existsSync(student.photo)) {
-    const ext  = path.extname(student.photo).slice(1) || 'jpeg'
-    const data = fs.readFileSync(student.photo)
-    photoSrc   = `data:image/${ext};base64,${data.toString('base64')}`
+  if (student.photo) {
+    if (student.photo.startsWith('data:')) {
+      photoSrc = student.photo          // already a data URL — use directly
+    } else if (fs.existsSync(student.photo)) {
+      const ext  = path.extname(student.photo).slice(1) || 'jpeg'
+      const data = fs.readFileSync(student.photo)
+      photoSrc   = `data:image/${ext};base64,${data.toString('base64')}`
+    }
   }
 
   /* Validity */

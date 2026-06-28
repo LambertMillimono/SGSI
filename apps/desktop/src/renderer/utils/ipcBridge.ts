@@ -162,6 +162,7 @@ export const ipc = {
     listSalaries: (teacherId: string) => invoke<any[]>('teachers:listSalaries', teacherId),
     createSalary: (data: any, actorId: string) => invoke<any>('teachers:createSalary', data, actorId),
     markSalaryPaid: (salaryId: string, actorId: string) => invoke<any>('teachers:markSalaryPaid', salaryId, actorId),
+    getSalaryReceipt: (salaryId: string) => invoke<any>('teachers:getSalaryReceipt', salaryId),
   },
   schedules: {
     listByClass: (classId: string) => invoke<any[]>('schedules:listByClass', classId),

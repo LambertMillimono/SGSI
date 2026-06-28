@@ -45,4 +45,9 @@ export function registerTeachersIpc(db: PrismaClient): void {
     try { return ok(await svc.markSalaryPaid(salaryId, actorId)) }
     catch (e: any) { return fail('ERROR', e.message) }
   })
+
+  ipcMain.handle('teachers:getSalaryReceipt', async (_, salaryId: string) => {
+    try { return ok(await svc.getSalaryReceipt(salaryId)) }
+    catch (e: any) { return fail('ERROR', e.message) }
+  })
 }

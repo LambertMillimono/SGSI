@@ -9,6 +9,7 @@ import {
   PlusOutlined, EyeOutlined, UserOutlined, TeamOutlined,
   PrinterOutlined, WarningOutlined,
 } from '@ant-design/icons'
+import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { ipc } from '../../utils/ipcBridge'
 import { useAuth } from '../../hooks/useAuth'
@@ -39,6 +40,7 @@ export function PayrollPage() {
   const { userId } = useAuth()
   const message = useAppMessage()
   const { token } = theme.useToken()
+  const navigate = useNavigate()
 
   const [teachers, setTeachers] = useState<any[]>([])
   const [salariesByTeacher, setSalariesByTeacher] = useState<Record<string, any[]>>({})
@@ -262,6 +264,17 @@ export function PayrollPage() {
                   Payer
                 </Button>
               </Popconfirm>
+            )}
+            {sal && (
+              <Tooltip title="Imprimer le bulletin">
+                <Button
+                  size="small"
+                  icon={<PrinterOutlined />}
+                  type="text"
+                  style={{ color: '#6366F1' }}
+                  onClick={() => navigate(`/payroll/salary/${sal.id}/receipt`)}
+                />
+              </Tooltip>
             )}
             <Tooltip title="Historique des salaires">
               <Button size="small" icon={<EyeOutlined />} type="text" onClick={() => openHistory(r)} />

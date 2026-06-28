@@ -70,6 +70,25 @@ export function StudentCreatePage() {
 
       const student = await ipc.students.create(studentData, userId ?? 'system')
 
+      // Save parent / tutor contacts
+      const parentEntries = [
+        { name: values.fatherName, phone: values.fatherPhone, relation: 'Père' },
+        { name: values.motherName, phone: values.motherPhone, relation: 'Mère' },
+        { name: values.tutorName,  phone: values.tutorPhone,  relation: 'Tuteur' },
+      ]
+      for (const p of parentEntries) {
+        if (p.name?.trim()) {
+          const [lastName = '', ...rest] = p.name.trim().split(' ')
+          const firstName = rest.join(' ') || lastName
+          await ipc.parents.create({
+            firstName,
+            lastName,
+            relation: p.relation,
+            phone: p.phone?.trim() || '—',
+          }, student.id).catch(() => {})
+        }
+      }
+
       // Enroll if class is selected
       if (values.classId && values.academicYearId) {
         await ipc.students.enroll(student.id, values.classId, values.academicYearId, userId ?? 'system')

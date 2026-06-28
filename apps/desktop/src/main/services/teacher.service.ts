@@ -230,4 +230,19 @@ export class TeacherService {
     await this.audit(actorId, 'UPDATE', 'salary', salaryId)
     return salary
   }
+
+  async getSalaryReceipt(salaryId: string) {
+    const salary = await this.db.salary.findUnique({
+      where: { id: salaryId },
+      include: {
+        teacher: {
+          include: {
+            user: { select: { firstName: true, lastName: true, email: true, phone: true } },
+          },
+        },
+      },
+    })
+    if (!salary) throw new Error('Bulletin de salaire introuvable')
+    return salary
+  }
 }

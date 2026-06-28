@@ -25,6 +25,7 @@ import { AbsencePage } from './pages/absences/AbsencePage'
 import { ReportsPage } from './pages/reports/ReportsPage'
 import { StaffPage } from './pages/staff/StaffPage'
 import { PayrollPage } from './pages/staff/PayrollPage'
+import { SalaryReceiptPage } from './pages/staff/SalaryReceiptPage'
 import { DocumentsPage } from './pages/documents/DocumentsPage'
 import { SchedulePage } from './pages/schedule/SchedulePage'
 import { ExpensesPage } from './pages/expenses/ExpensesPage'
@@ -167,6 +168,7 @@ function AppInner() {
           <Route path="staff"       element={<G m="staff"><StaffPage /></G>} />
           <Route path="discipline"  element={<G m="students"><DisciplinePage /></G>} />
           <Route path="payroll"    element={<G m="staff"><PayrollPage /></G>} />
+          <Route path="payroll/salary/:id/receipt" element={<G m="staff"><SalaryReceiptPage /></G>} />
 
           {/* Dépenses */}
           <Route path="expenses"   element={<G m="expenses"><ExpensesPage /></G>} />
