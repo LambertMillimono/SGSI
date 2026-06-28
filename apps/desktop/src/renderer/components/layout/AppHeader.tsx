@@ -241,12 +241,12 @@ export function AppHeader() {
       justifyContent: 'space-between',
       background: token.colorBgContainer,
       borderBottom: `1px solid ${token.colorBorderSecondary}`,
+      boxShadow: isDark ? 'none' : '0 1px 8px rgba(30,33,64,0.06)',
       position: 'sticky',
       top: 0,
       zIndex: 99,
       height: 60,
       lineHeight: '60px',
-      /* Prevent header from causing horizontal overflow */
       overflow: 'hidden',
       minWidth: 0,
     }}>

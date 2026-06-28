@@ -51,49 +51,50 @@ function ThemedApp() {
 
           /* === SURFACES — Warm Indigo Dark (NOT cold blue-black) === */
           ...(isDark ? {
-            colorBgLayout:        '#0F0F1A',  /* Deep indigo dark */
-            colorBgContainer:     '#1A1A2E',  /* Surface indigo */
-            colorBgElevated:      '#252540',  /* Elevated */
+            colorBgLayout:        '#0F0F1A',
+            colorBgContainer:     '#1A1A2E',
+            colorBgElevated:      '#252540',
             colorBgSpotlight:     '#2E2E55',
             colorBorderSecondary: 'rgba(99,102,241,0.08)',
             colorBorder:          'rgba(99,102,241,0.15)',
-            colorText:            '#F0EFFF',  /* Warm white with indigo tint */
+            colorText:            '#F0EFFF',
             colorTextSecondary:   '#A0A0C0',
             colorTextTertiary:    '#6B6B8A',
             colorTextQuaternary:  '#3A3A58',
           } : {
-            colorBgLayout:        '#FAFAFE',  /* Subtle indigo-white */
-            colorBgContainer:     '#FFFFFF',
+            colorBgLayout:        '#ECEEF5',  /* Fond gris-bleu doux — pas de blanc aveuglant */
+            colorBgContainer:     '#FFFFFF',  /* Cartes et surfaces blanches pour contraste */
             colorBgElevated:      '#FFFFFF',
-            colorBgSpotlight:     '#F4F4F5',
-            colorBorderSecondary: '#E4E4E7',
-            colorBorder:          '#E4E4E7',
-            colorText:            '#18181B',  /* Zinc 900 */
-            colorTextSecondary:   '#52525B',  /* Zinc 600 */
-            colorTextTertiary:    '#A1A1AA',  /* Zinc 400 */
-            colorTextQuaternary:  '#D4D4D8',  /* Zinc 300 */
+            colorBgSpotlight:     '#F0F0F8',
+            colorBorderSecondary: '#DDE1EC',
+            colorBorder:          '#C8CDDF',
+            colorText:            '#1A1B2E',  /* Quasi-noir avec légère teinte indigo */
+            colorTextSecondary:   '#4A5070',
+            colorTextTertiary:    '#8890B0',
+            colorTextQuaternary:  '#B8BECE',
           }),
         },
         components: {
           Layout: {
-            bodyBg:        isDark ? '#0F0F1A' : '#FAFAFE',
-            siderBg:       isDark ? '#1A1A2E' : '#FFFFFF',
+            bodyBg:        isDark ? '#0F0F1A' : '#ECEEF5',
+            siderBg:       isDark ? '#1A1A2E' : '#1E2140',  /* Sidebar sombre même en mode clair */
             headerBg:      isDark ? '#1A1A2E' : '#FFFFFF',
             headerPadding: '0 24px',
             headerHeight:  60,
           },
           Card: {
             colorBgContainer:     isDark ? '#1A1A2E' : '#FFFFFF',
-            colorBorderSecondary: isDark ? 'rgba(99,102,241,0.15)' : '#E4E4E7',
+            colorBorderSecondary: isDark ? 'rgba(99,102,241,0.15)' : '#DDE1EC',
             borderRadiusLG: 16,
             paddingLG: 20,
+            boxShadowTertiary: isDark ? 'none' : '0 1px 4px rgba(30,33,64,0.06), 0 4px 16px rgba(30,33,64,0.04)',
           },
           Table: {
             colorBgContainer: isDark ? '#1A1A2E' : '#FFFFFF',
-            headerBg:         isDark ? '#1A1A2E' : '#F4F4F5',
-            rowHoverBg:       isDark ? 'rgba(99,102,241,0.08)' : '#EEF2FF',
-            headerColor:      isDark ? '#6B6B8A' : '#A1A1AA',
-            borderColor:      isDark ? 'rgba(99,102,241,0.08)' : '#F4F4F5',
+            headerBg:         isDark ? '#1A1A2E' : '#F2F3FA',
+            rowHoverBg:       isDark ? 'rgba(99,102,241,0.08)' : '#EEF0FB',
+            headerColor:      isDark ? '#6B6B8A' : '#4A5070',
+            borderColor:      isDark ? 'rgba(99,102,241,0.08)' : '#E8EAEF',
             cellFontSize:     13,
           },
           Menu: {
