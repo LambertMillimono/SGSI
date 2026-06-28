@@ -6,11 +6,11 @@ import { GradeService } from '../services/grade.service'
 import { BulletinService } from '../services/bulletin.service'
 import { ok, fail } from '@sgsi/shared'
 
-/** Parse a raw cell value to a valid grade 0-20, or null */
-function parseGrade(raw: any): number | null {
+/** Parse a raw cell value to a valid grade 0-maxValue, or null */
+function parseGrade(raw: any, maxValue = 20): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const n = parseFloat(String(raw).replace(',', '.'))
-  if (isNaN(n) || n < 0 || n > 20) return null
+  if (isNaN(n) || n < 0 || n > maxValue) return null
   return n
 }
 

@@ -30,9 +30,10 @@ function getDecisionColor(decision: string): string {
   return '#b87c00'
 }
 
-function getGradeColor(v: number): string {
-  if (v >= 16) return '#15803d'
-  if (v >= 10) return '#1e3a8a'
+function getGradeColor(v: number, max = 20): string {
+  const ratio = v / max
+  if (ratio >= 0.80) return '#15803d'   // >= 16/20 ou >= 8/10
+  if (ratio >= 0.50) return '#1e3a8a'   // >= 10/20 ou >= 5/10
   return '#dc2626'
 }
 
@@ -90,11 +91,19 @@ export function BulletinPage() {
   }
 
   const enrollment = student.enrollments?.[0]
+
+  // ── Barème selon le cycle (Maternelle/Primaire = /10, Collège/Lycée = /20) ──
+  const cycleName: string = enrollment?.class?.level?.cycle?.name ?? ''
+  const displayMax: number = (cycleName === 'Maternelle' || cycleName === 'Primaire') ? 10 : 20
+  // Convertit une valeur interne (/20) vers l'échelle d'affichage
+  const toDisplay = (val20: number) => displayMax === 10 ? val20 / 2 : val20
+
   const subjectAverages: any[] = averages?.subjectAverages ?? []
   // N'utiliser que les matières ayant des notes pour la moyenne affichée
   const gradedSubjects = subjectAverages.filter((s: any) => s.grades.length > 0)
   const computedAvg: number = averages?.generalAverage ?? 0
   const generalAverage: number = bulletin?.generalAverage ?? computedAvg
+  const passingThreshold = displayMax / 2   // 10 pour /20, 5 pour /10
   const decision: string = bulletin?.decision ?? (computedAvg >= 10 ? 'Admis(e)' : computedAvg > 0 ? 'Insuffisant' : '—')
   const appreciation: string = bulletin?.appreciation ?? (computedAvg > 0 ? getAppreciationLabel(generalAverage) : '—')
   const rank: number = bulletin?.rank ?? 0
@@ -313,8 +322,8 @@ export function BulletinPage() {
                 fontSize: 22, fontWeight: 900,
                 color: computedAvg > 0 ? getDecisionColor(decision) : '#888',
               }}>
-                {computedAvg > 0 ? generalAverage.toFixed(2) : '—'}
-                {computedAvg > 0 && <span style={{ fontSize: 13, fontWeight: 400 }}> /20</span>}
+                {computedAvg > 0 ? toDisplay(generalAverage).toFixed(2) : '—'}
+                {computedAvg > 0 && <span style={{ fontSize: 13, fontWeight: 400 }}> /{displayMax}</span>}
               </div>
               {gradedSubjects.length < subjectAverages.length && subjectAverages.length > 0 && (
                 <div style={{ fontSize: 9, color: '#e67e22', marginTop: 2 }}>
@@ -361,11 +370,12 @@ export function BulletinPage() {
                   </tr>
                 ) : (
                   subjectAverages.map((s: any, i: number) => {
+                    // Convertit chaque note à l'échelle d'affichage
                     const gradeMap: Record<string, number> = {}
                     s.grades.forEach((g: any) => {
-                      gradeMap[g.evalType] = (g.value / g.maxValue) * 20
+                      gradeMap[g.evalType] = toDisplay((g.value / g.maxValue) * 20)
                     })
-                    const avg: number = s.average
+                    const avgDisplay: number = toDisplay(s.average)   // moyenne dans l'échelle affichée
                     const rowBg = i % 2 === 0 ? '#fff' : '#f9f9f9'
                     return (
                       <tr key={s.subjectId} style={{ background: rowBg }}>
@@ -376,8 +386,8 @@ export function BulletinPage() {
                         {activeCols.map((c) => (
                           <td key={c.key} style={{ ...tdStyle, textAlign: 'center' }}>
                             {gradeMap[c.key] != null ? (
-                              <span style={{ color: getGradeColor(gradeMap[c.key]), fontWeight: 500 }}>
-                                {gradeMap[c.key].toFixed(1) === gradeMap[c.key].toString()
+                              <span style={{ color: getGradeColor(gradeMap[c.key], displayMax), fontWeight: 500 }}>
+                                {Number.isInteger(gradeMap[c.key])
                                   ? gradeMap[c.key].toFixed(0)
                                   : gradeMap[c.key].toFixed(2)}
                               </span>
@@ -388,15 +398,15 @@ export function BulletinPage() {
                         ))}
                         <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700 }}>
                           {s.grades.length > 0 ? (
-                            <span style={{ color: getGradeColor(avg), fontWeight: 700 }}>
-                              {avg.toFixed(2)}
+                            <span style={{ color: getGradeColor(avgDisplay, displayMax), fontWeight: 700 }}>
+                              {avgDisplay.toFixed(2)}
                             </span>
                           ) : (
                             <span style={{ color: '#bbb' }}>—</span>
                           )}
                         </td>
                         <td style={{ ...tdStyle, textAlign: 'left', padding: '4px 8px', fontSize: 11 }}>
-                          {s.grades.length > 0 ? getAppreciationLabel(avg) : ''}
+                          {s.grades.length > 0 ? getAppreciationLabel(s.average) : ''}
                         </td>
                       </tr>
                     )
@@ -416,7 +426,7 @@ export function BulletinPage() {
                       <td key={c.key} style={{ ...tdStyle }} />
                     ))}
                     <td style={{ ...tdStyle, textAlign: 'center', fontSize: 14, color: getDecisionColor(decision) }}>
-                      {generalAverage.toFixed(2)}
+                      {toDisplay(generalAverage).toFixed(2)}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'left', padding: '5px 8px', fontSize: 12 }}>
                       {appreciation}
@@ -451,7 +461,7 @@ export function BulletinPage() {
                   {i < activeCols.length - 1 ? '  |  ' : ''}
                 </span>
               ))}
-              &nbsp;&nbsp;• Moyenne saisie sur 20 points
+              &nbsp;&nbsp;• Notes et moyennes sur {displayMax} points{displayMax === 10 ? ' (cycle ' + (cycleName || 'Primaire') + ')' : ''}
             </div>
           )}
 
